@@ -1,26 +1,412 @@
 @import "tailwindcss";
 
+@theme {
+  --color-paprika: #c62d17; /* 4.5:1 with cream, 5.5:1 with white */
+  --color-paprika-ink: #b8281a;
+  --color-paprika-deep: #9f2412;
+  --color-cream: #f6e6d0;
+  --color-cream-soft: #fbf3e7;
+  --color-mustard: #f7c548;
+  --color-mustard-soft: #fbd97a;
+  --color-ink: #221a16;
+  --color-plum: #3e1012;
+  --color-leaf: #2f6b2c;
+
+  --font-display: var(--font-anton), "Arial Narrow", sans-serif;
+  --font-sticker: var(--font-titan), "Arial Black", sans-serif;
+  --font-body: var(--font-barlow), "Arial Narrow", sans-serif;
+
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+/* Decorative overhang (fanned cards, gloves, sliding lines) must never widen
+   the mobile layout viewport. clip, not hidden, so position: sticky still works. */
+main,
+footer {
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-paprika);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Big condensed headline, CRAV-style stacked lines */
+.display {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  line-height: 0.88;
+  letter-spacing: 0.005em;
+}
+
+/* Curved, tilted sticker label ("TOP CLASSIC" equivalent) */
+.sticker {
+  display: inline-block;
+  font-family: var(--font-sticker);
+  text-transform: uppercase;
+  font-size: 0.95rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--color-paprika-ink);
+  -webkit-text-stroke: 0;
+  text-shadow:
+    2px 2px 0 #fff,
+    -2px 2px 0 #fff,
+    2px -2px 0 #fff,
+    -2px -2px 0 #fff,
+    0 3px 0 #fff,
+    3px 4px 0 rgb(0 0 0 / 0.12);
+  transform: rotate(-6deg);
+}
+.sticker--on-red {
+  color: var(--color-paprika-ink);
+}
+
+/* Pill button */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.7rem 1.5rem;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  transition:
+    transform 0.35s var(--ease-bounce),
+    background-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
+  will-change: transform;
+}
+.pill:hover {
+  transform: translateY(-2px) rotate(-2deg) scale(1.04);
+}
+.pill:active {
+  transform: scale(0.96);
+}
+.pill-red {
+  background: var(--color-paprika-ink);
+  color: #fff;
+  box-shadow: 0 4px 0 var(--color-paprika-deep);
+}
+.pill-cream {
+  background: var(--color-cream-soft);
+  color: var(--color-ink);
+  box-shadow: 0 4px 0 rgb(0 0 0 / 0.18);
+}
+.pill-ink {
+  background: var(--color-ink);
+  color: var(--color-cream);
+  box-shadow: 0 4px 0 #000;
+}
+.pill-outline {
+  border: 2px solid currentColor;
+}
+
+/* Section wave edges, the CRAV signature. Mask keeps them sharp at any width */
+.wave-top {
+  --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120' preserveAspectRatio='none'%3E%3Cpath d='M0 120V60C120 10 240 0 360 30s240 80 360 70 240-70 360-80 240 30 360 50v50z'/%3E%3C/svg%3E");
+  position: relative;
+}
+.wave-top::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% - 1px);
+  height: clamp(40px, 7vw, 110px);
+  background: inherit;
+  -webkit-mask: var(--wave) center / 100% 100% no-repeat;
+  mask: var(--wave) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+.wave-bottom {
+  --wave-b: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 120' preserveAspectRatio='none'%3E%3Cpath d='M0 0v60c140 50 260 60 380 30S620 10 760 30s240 80 380 70 220-40 300-60V0z'/%3E%3C/svg%3E");
+  position: relative;
+}
+.wave-bottom::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% - 1px);
+  height: clamp(40px, 7vw, 110px);
+  background: inherit;
+  -webkit-mask: var(--wave-b) center / 100% 100% no-repeat;
+  mask: var(--wave-b) center / 100% 100% no-repeat;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Infinite marquee */
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee var(--marquee-speed, 30s) linear infinite;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--r, 0deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(calc(var(--r, 0deg) + 4deg));
+  }
+}
+.floaty {
+  animation: float var(--float-speed, 5s) ease-in-out infinite;
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+.wobble {
+  animation: wobble 2.4s ease-in-out infinite;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin-slow {
+  animation: spin-slow 18s linear infinite;
+}
+
+/* Reveal-on-scroll base state; JS adds .is-in */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(40px) rotate(var(--rr, 0deg));
+  transition:
+    opacity 0.7s var(--ease-out-expo),
+    transform 0.9s var(--ease-bounce);
+  transition-delay: var(--d, 0ms);
+}
+[data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+.no-js [data-reveal] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- Loader (first visit per session) ---------- */
+.loader {
+  animation: loader-out 0.3s var(--ease-out-expo) 0.35s forwards;
+}
+.skip-loader .loader {
+  display: none;
+}
+@keyframes loader-out {
+  to {
+    clip-path: ellipse(120% 0% at 50% 0%);
+    visibility: hidden;
+  }
+}
+.loader {
+  clip-path: ellipse(150% 150% at 50% 0%);
+}
+.loader-pot {
+  animation: pot-bounce 0.55s var(--ease-bounce) infinite alternate;
+  transform-origin: 50% 100%;
+}
+@keyframes pot-bounce {
+  from {
+    transform: translateY(0) scale(1, 1) rotate(-3deg);
+  }
+  to {
+    transform: translateY(-14px) scale(0.97, 1.04) rotate(3deg);
+  }
+}
+.loader-bubble {
+  animation: bubble 1s ease-in infinite;
+}
+@keyframes bubble {
+  0% {
+    transform: translateY(10px) scale(0.4);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-40px) scale(1);
+    opacity: 0;
+  }
+}
+.loader-line {
+  opacity: 0;
+  transform: translateY(100%);
+  animation: loader-line 0.1s steps(1, end) forwards;
+}
+.loader-line:last-child {
+  animation-name: loader-line-last;
+}
+@keyframes loader-line {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes loader-line-last {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.loader-bar {
+  animation: loader-bar 0.4s var(--ease-out-expo) forwards;
+}
+@keyframes loader-bar {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loader {
+    display: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    transform: translateY(40px) scale(0.9) rotate(-3deg);
+    opacity: 0;
+  }
+}
+
+/* ---------- Page curtain (client navigations) ---------- */
+.curtain {
+  animation: curtain-up 0.9s var(--ease-out-expo) forwards;
+  clip-path: ellipse(150% 150% at 50% 100%);
+}
+@keyframes curtain-up {
+  to {
+    clip-path: ellipse(150% 0% at 50% 0%);
+    visibility: hidden;
+  }
+}
+.page-in {
+  animation: page-in 0.9s var(--ease-out-expo) both;
+}
+@keyframes page-in {
+  from {
+    transform: translateY(60px);
+  }
+}
+
+/* ---------- Hero entrance (transform only, keeps LCP immediate) ---------- */
+:root {
+  --hero-base: 0.05s;
+}
+:root:has(.loader) {
+  --hero-base: 0.4s;
+}
+:root.skip-loader {
+  --hero-base: 0.05s;
+}
+.hero-word {
+  transform: rotate(var(--rot, 0deg));
+  animation: hero-word 0.9s var(--ease-bounce) both;
+  animation-delay: var(--hero-base);
+}
+@keyframes hero-word {
+  from {
+    transform: translateY(0.35em) scale(0.55) rotate(calc(var(--rot, 0deg) * -4));
+  }
+}
+.hero-pop {
+  animation: hero-pop 0.7s var(--ease-bounce) both;
+  animation-delay: calc(var(--hero-base) + 0.4s);
+}
+@keyframes hero-pop {
+  from {
+    transform: scale(0) rotate(-30deg);
+  }
+}
+
+@keyframes blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+.blink {
+  animation: blink 4s infinite;
 }
