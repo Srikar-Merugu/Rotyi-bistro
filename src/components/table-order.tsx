@@ -12,6 +12,7 @@ import { emailOk } from "@/lib/booking";
 import { getDictionary } from "@/lib/i18n";
 import { KettleMascot } from "./art";
 import { photoUrl } from "@/lib/photo";
+import { ServiceButtons } from "./service-buttons";
 
 const copy = {
   hu: {
@@ -162,8 +163,8 @@ export function TableOrder({
   }
 
   return (
-    <div className="min-h-screen bg-cream pb-32">
-      <section className="bg-ink px-4 pb-10 pt-24 text-cream">
+    <div className="min-h-screen bg-cream pb-32 pt-20">
+      <section className="mx-3 rounded-[2rem] bg-ink px-4 pb-14 pt-7 text-cream sm:mx-auto sm:max-w-3xl">
         <div className="mx-auto flex max-w-3xl items-center gap-4">
           <KettleMascot className="wobble w-20 shrink-0" />
           <div>
@@ -187,6 +188,10 @@ export function TableOrder({
           </div>
         )}
       </section>
+
+      <div className="mx-auto -mt-6 max-w-3xl px-4">
+        <ServiceButtons lang={lang} token={token} />
+      </div>
 
       {!open && <p className="mx-auto mt-6 max-w-3xl rounded-2xl bg-mustard px-4 py-3 text-lg font-bold">{t.closed}</p>}
 

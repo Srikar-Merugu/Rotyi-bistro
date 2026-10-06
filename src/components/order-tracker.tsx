@@ -7,6 +7,7 @@ import type { Locale } from "@/lib/routes";
 import { formatHuf } from "@/lib/site";
 import { href } from "@/lib/routes";
 import { KettleMascot, Star } from "./art";
+import { ServiceButtons } from "./service-buttons";
 
 type Order = {
   id: string;
@@ -141,6 +142,12 @@ export function OrderTracker({ lang, token, id, guestKey }: { lang: Locale; toke
             </ol>
           )}
         </div>
+
+        {order && !cancelled && (
+          <div className="mt-6">
+            <ServiceButtons lang={lang} token={token} />
+          </div>
+        )}
 
         {order && (
           <div className="mt-6 rounded-[2rem] bg-cream-soft p-5">

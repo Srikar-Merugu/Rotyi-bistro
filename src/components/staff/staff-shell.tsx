@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/browser";
 import { KettleMascot } from "../art";
+import { TableCalls } from "./table-calls";
 
 export type Staff = { user_id: string; email: string; name: string | null; role: "admin" | "kitchen" };
 export type Alert = { id: string; kind: string; title: string; body: string | null; created_at: string; read_at: string | null; ref_type: string | null; ref_id: string | null; audience: string };
@@ -128,7 +129,7 @@ function Authed({ staff, children }: { staff: Staff; children: React.ReactNode }
         setAlerts((prev) => [a, ...prev].slice(0, 60));
         setToasts((prev) => [a, ...prev].slice(0, 4));
         setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== a.id)), 7000);
-        const urgent = a.kind === "order.new" || a.kind === "booking.new";
+        const urgent = a.kind === "order.new" || a.kind === "booking.new" || a.kind.startsWith("service.");
         if (soundRef.current) chime(urgent);
         navigator.vibrate?.(urgent ? [150, 80, 150] : 80);
         if (document.hidden && "Notification" in window && Notification.permission === "granted") {
@@ -201,6 +202,8 @@ function Authed({ staff, children }: { staff: Staff; children: React.ReactNode }
             </div>
           </div>
         </header>
+
+        {staff.role === "admin" && <TableCalls />}
 
         <main className="mx-auto max-w-7xl px-3 py-5 sm:px-6">{canSee ? children : <NoAccess email={staff.email} role={staff.role} />}</main>
 
