@@ -99,7 +99,7 @@ const hu = {
   booking: {
     sticker: "3 KOPPINTÁS",
     title: "Foglalj asztalt",
-    lead: "Dátum, időpont, létszám. Utána csak a neved és a számod.",
+    lead: "Nap, létszám, időpont. Csak a szabad asztalokat mutatjuk. Utána a neved és a számod.",
     step: (n: number) => `${n}. lépés`,
     date: "Melyik nap?",
     time: "Hánykor?",
@@ -318,7 +318,7 @@ const en: Dictionary = {
   booking: {
     sticker: "3 TAPS",
     title: "Book a table",
-    lead: "Date, time, party size. Then just your name and number.",
+    lead: "Day, party size, time. We only show times with a free table. Then just your name and number.",
     step: (n: number) => `Step ${n}`,
     date: "Which day?",
     time: "What time?",

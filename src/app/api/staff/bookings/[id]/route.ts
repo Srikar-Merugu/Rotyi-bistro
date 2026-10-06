@@ -3,6 +3,7 @@ import { alert, brandedEmail, esc, niceDate, sendEmail, SITE_URL } from "@/lib/n
 import { db, requireStaff } from "@/lib/supabase/server";
 import { formatHuf, venue } from "@/lib/site";
 import { createOrder } from "@/lib/order-create";
+import { suggestTable } from "@/lib/capacity";
 
 type Body = {
   action?: string;
@@ -42,7 +43,7 @@ export async function POST(
   const { data: current } = await db()
     .from("booking_requests")
     .select(
-      "id, status, reference, name, email, party_size, booking_date, booking_time, locale, table_id, dish_ids, note",
+      "id, status, kind, reference, name, email, party_size, booking_date, booking_time, locale, table_id, dish_ids, note",
     )
     .eq("id", id)
     .maybeSingle();
@@ -65,13 +66,19 @@ export async function POST(
         : "cancelled";
   const note = (body.note ?? "").trim().slice(0, 1000) || null;
 
+  // Approving without choosing a table → give it the best free one for that time.
+  let tableId = body.tableId || null;
+  if (status === "confirmed" && !tableId && current.kind === "table" && current.booking_time) {
+    const t = await suggestTable(current.id, current.booking_date, String(current.booking_time).slice(0, 5), current.party_size);
+    tableId = t?.id ?? null;
+  }
+
   const { data: b, error } = await db()
     .from("booking_requests")
     .update({
       status,
       admin_note: note,
-      table_id:
-        status === "confirmed" ? body.tableId || null : current.table_id,
+      table_id: status === "confirmed" ? tableId : current.table_id,
       status_changed_at: new Date().toISOString(),
       status_changed_by: staff.userId,
     })

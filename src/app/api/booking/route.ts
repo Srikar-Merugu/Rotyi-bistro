@@ -17,6 +17,7 @@ import {
   SITE_URL,
 } from "@/lib/notify";
 import { db, hasSupabase } from "@/lib/supabase/server";
+import { isAvailable } from "@/lib/capacity";
 
 // Guest booking request → booking_requests (pending) → admin alert +
 // "we received your request" to the guest + "new request" to the owner.
@@ -61,6 +62,10 @@ export async function POST(req: Request) {
       { status: 422 },
     );
   const b = body as BookingPayload;
+
+  // Re-check capacity: the slot may have filled up since the guest saw it.
+  if (b.kind === "table" && hasSupabase() && !(await isAvailable(b.date, b.time!, b.partySize)))
+    return NextResponse.json({ ok: false, error: "slot_full" }, { status: 409 });
 
   if (!hasSupabase()) {
     console.info("[booking:demo] Supabase env missing, request not stored");

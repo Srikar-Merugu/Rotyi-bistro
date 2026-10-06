@@ -10,7 +10,13 @@ import { useTable } from "./table-provider";
 import { useOpenAllDayDate } from "@/lib/venue-status";
 import { GroupForm } from "./group-form";
 
-type Step = "date" | "time" | "party" | "details" | "done" | "group";
+type Step = "date" | "party" | "time" | "details" | "done" | "group";
+type Slot = { time: string; available: boolean };
+
+const extra = {
+  hu: { more: "Több nap", less: "Kevesebb nap", full: "Telt ház", loading: "Szabad asztalok keresése…", noneTitle: "Erre a napra nincs szabad asztal", none: "Válassz másik napot vagy kisebb létszámot, vagy hívj minket.", taken: "Ezt az időpontot közben lefoglalták. Válassz másikat!" },
+  en: { more: "More days", less: "Fewer days", full: "Full", loading: "Checking free tables…", noneTitle: "No free table that day", none: "Try another day or a smaller group, or give us a call.", taken: "That time was just taken. Please pick another." },
+};
 
 // "Now" is read once on the client; on the server it's null so the date chips
 // render as skeletons and never mismatch on hydration.
@@ -28,11 +34,35 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
   const [party, setParty] = useState<number>(2);
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [allDays, setAllDays] = useState(false);
+  const [avail, setAvail] = useState<{ key: string; lunch: Slot[]; dinner: Slot[] } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const x = extra[lang];
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const openAllDayDate = useOpenAllDayDate();
   const dates = useMemo(() => (now ? bookableDates(14, now, openAllDayDate) : []), [now, openAllDayDate]);
-  const slots = useMemo(() => (date && now ? slotsFor(date, now, openAllDayDate) : { lunch: [], dinner: [] }), [date, now, openAllDayDate]);
+  const availKey = `${date}|${party}`;
+  const baseSlots = useMemo(() => (date && now ? slotsFor(date, now, openAllDayDate) : { lunch: [], dinner: [] }), [date, now, openAllDayDate]);
+  // Free tables for this date + party size; until it loads, show times as checking.
+  const slots = avail && avail.key === availKey ? avail : null;
+
+  useEffect(() => {
+    if (step !== "time" || !date) return;
+    let stop = false;
+    fetch(`/api/availability?date=${date}&party=${party}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (stop) return;
+        // No database (local demo): treat every time as free.
+        const all = (list: string[]) => list.map((time) => ({ time, available: true }));
+        setAvail({ key: `${date}|${party}`, lunch: d?.lunch ?? all(baseSlots.lunch), dinner: d?.dinner ?? all(baseSlots.dinner) });
+      })
+      .catch(() => {});
+    return () => {
+      stop = true;
+    };
+  }, [step, date, party, baseSlots]);
 
   const dishNames = items
     .map((id) => menuItems.find((m) => m.id === id)?.name[lang])
@@ -95,6 +125,14 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (res.status === 409) {
+        setStatus("idle");
+        setTime("");
+        setAvail(null);
+        setNotice(x.taken);
+        setStep("time");
+        return;
+      }
       if (!res.ok) throw new Error(String(res.status));
       trackEvent("booking_submitted", { party_size: party, kind: "table", lang });
       clear();
@@ -112,7 +150,7 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
     setStatus("idle");
   };
 
-  const stepNo = step === "date" ? 1 : step === "time" ? 2 : step === "party" ? 3 : 4;
+  const stepNo = step === "date" ? 1 : step === "party" ? 2 : step === "time" ? 3 : 4;
   const chip =
     "min-h-12 rounded-2xl border-2 border-ink/15 bg-cream-soft px-3 py-2 font-[family-name:var(--font-display)] uppercase tracking-wide text-ink transition hover:-translate-y-0.5 hover:border-ink aria-pressed:border-paprika-ink aria-pressed:bg-paprika-ink aria-pressed:text-white";
 
@@ -134,20 +172,20 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
       {(date || time) && step !== "done" && step !== "group" && (
         <p className="mb-4 rounded-xl bg-mustard/60 px-3 py-2 text-base font-semibold" aria-live="polite">
           {date && longDate(date)}
+          {(step === "time" || step === "details") && ` · ${party} ${lang === "hu" ? "fő" : party === 1 ? "guest" : "guests"}`}
           {time && ` · ${time}`}
-          {step === "details" && ` · ${party} ${lang === "hu" ? "fő" : party === 1 ? "guest" : "guests"}`}
         </p>
       )}
 
       {step === "date" && (
         <fieldset>
           <legend className="display mb-4 text-3xl sm:text-4xl">{t.date}</legend>
-          <div className="hide-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2 sm:mx-0 sm:grid sm:grid-cols-7 sm:overflow-visible sm:px-0">
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
             {!now &&
-              Array.from({ length: 14 }).map((_, i) => (
-                <span key={i} className="h-[72px] w-[78px] shrink-0 animate-pulse rounded-2xl bg-ink/10 sm:w-auto" />
+              Array.from({ length: 8 }).map((_, i) => (
+                <span key={i} className="h-[68px] animate-pulse rounded-2xl bg-ink/10" />
               ))}
-            {dates.map((d) => {
+            {dates.map((d, i) => {
               const label = fmtDate(d);
               return (
                 <button
@@ -157,16 +195,22 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
                   onClick={() => {
                     setDate(d);
                     setTime("");
-                    setStep("time");
+                    setNotice(null);
+                    setStep("party");
                   }}
-                  className={`${chip} flex w-[78px] shrink-0 snap-start flex-col items-center !px-1 leading-tight sm:w-auto`}
+                  className={`${chip} min-w-0 flex-col items-center !px-1 leading-tight ${i >= 8 && !allDays ? "hidden sm:flex" : "flex"}`}
                 >
                   <span className="text-sm opacity-80">{label.top}</span>
-                  <span className="text-lg">{label.bottom}</span>
+                  <span className="whitespace-nowrap text-base sm:text-lg">{label.bottom}</span>
                 </button>
               );
             })}
           </div>
+          {dates.length > 8 && (
+            <button type="button" onClick={() => setAllDays((v) => !v)} className="mt-3 min-h-11 font-semibold underline decoration-2 underline-offset-4 sm:hidden">
+              {allDays ? x.less : `${x.more} →`}
+            </button>
+          )}
         </fieldset>
       )}
 
@@ -177,30 +221,50 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
               {t.time}
             </h3>
           </legend>
-          {(["lunch", "dinner"] as const).map((k) =>
-            slots[k].length ? (
-              <div key={k} className="mb-4">
-                <p className="mb-2 text-sm font-bold uppercase tracking-wider text-ink/70">{t[k]}</p>
-                <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                  {slots[k].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      aria-pressed={s === time}
-                      onClick={() => {
-                        setTime(s);
-                        setStep("party");
-                      }}
-                      className={chip}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null,
+          {notice && (
+            <p role="alert" className="mb-3 rounded-xl bg-paprika-ink px-3 py-2 font-semibold text-white">
+              {notice}
+            </p>
           )}
-          <BackButton label={t.back} onClick={() => setStep("date")} />
+          {!slots ? (
+            <p className="mb-4 text-ink/70" role="status">
+              {x.loading}
+            </p>
+          ) : [...slots.lunch, ...slots.dinner].every((s) => !s.available) ? (
+            <div className="mb-4 rounded-2xl border-2 border-dashed border-ink/30 p-4">
+              <p className="font-[family-name:var(--font-display)] text-2xl uppercase">{x.noneTitle}</p>
+              <p className="mt-1 text-ink/80">{x.none}</p>
+            </div>
+          ) : (
+            (["lunch", "dinner"] as const).map((k) =>
+              slots[k].length ? (
+                <div key={k} className="mb-4">
+                  <p className="mb-2 text-sm font-bold uppercase tracking-wider text-ink/70">{t[k]}</p>
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                    {slots[k].map((s) => (
+                      <button
+                        key={s.time}
+                        type="button"
+                        disabled={!s.available}
+                        aria-pressed={s.time === time}
+                        aria-label={s.available ? s.time : `${s.time} · ${x.full}`}
+                        onClick={() => {
+                          setTime(s.time);
+                          setNotice(null);
+                          setStep("details");
+                        }}
+                        className={`${chip} flex flex-col items-center justify-center !px-1 leading-none disabled:pointer-events-none disabled:border-dashed disabled:bg-transparent disabled:text-ink/35`}
+                      >
+                        <span className={s.available ? "" : "line-through"}>{s.time}</span>
+                        {!s.available && <span className="mt-0.5 text-[10px] tracking-wider">{x.full}</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null,
+            )
+          )}
+          <BackButton label={t.back} onClick={() => setStep("party")} />
         </fieldset>
       )}
 
@@ -219,7 +283,8 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
                 aria-pressed={n === party}
                 onClick={() => {
                   setParty(n);
-                  setStep("details");
+                  setTime("");
+                  setStep("time");
                 }}
                 className={`${chip} text-2xl`}
               >
@@ -231,7 +296,7 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
             </button>
           </div>
           <p className="mt-3 text-base text-ink/70">{t.groupHint}</p>
-          <BackButton label={t.back} onClick={() => setStep("time")} />
+          <BackButton label={t.back} onClick={() => setStep("date")} />
         </fieldset>
       )}
 
@@ -266,7 +331,7 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
             <button type="submit" disabled={status === "sending"} className="pill pill-red disabled:opacity-60">
               {status === "sending" ? t.sending : t.submit}
             </button>
-            <BackButton label={t.back} onClick={() => setStep("party")} inline />
+            <BackButton label={t.back} onClick={() => setStep("time")} inline />
           </div>
         </form>
       )}
