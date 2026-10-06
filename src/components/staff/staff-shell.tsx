@@ -52,7 +52,8 @@ function chime(urgent = false) {
 
 export function StaffShell({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [staff, setStaff] = useState<Staff | null | undefined>(undefined);
+  // Staff row for the signed-in user, keyed by user id so a sign-out/sign-in can't show a stale role.
+  const [lookup, setLookup] = useState<{ userId: string; staff: Staff | null } | null>(null);
 
   useEffect(() => {
     const sb = supabase();
@@ -62,18 +63,17 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!session) {
-      if (session === null) setStaff(null);
-      return;
-    }
+    if (!session) return;
+    const userId = session.user.id;
     supabase()
       .from("staff")
       .select("user_id, email, name, role")
       .eq("user_id", session.user.id)
       .maybeSingle()
-      .then(({ data }) => setStaff((data as Staff) ?? null));
+      .then(({ data }) => setLookup({ userId, staff: (data as Staff) ?? null }));
   }, [session]);
 
+  const staff = session && lookup?.userId === session.user.id ? lookup.staff : undefined;
   if (session === undefined || (session && staff === undefined)) return <Splash />;
   if (!session) return <Login />;
   if (!staff) return <NoAccess email={session.user.email ?? ""} />;

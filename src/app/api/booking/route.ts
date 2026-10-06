@@ -1,6 +1,20 @@
-import { NextResponse } from "next/server";
-import { emailOk, phoneOk, slotsFor, MAX_GROUP, MAX_PARTY, type BookingPayload } from "@/lib/booking";
-import { alert, emailLayout, esc, ownerEmail, sendEmail, SITE_URL } from "@/lib/notify";
+import { after, NextResponse } from "next/server";
+import {
+  emailOk,
+  phoneOk,
+  slotsFor,
+  MAX_GROUP,
+  MAX_PARTY,
+  type BookingPayload,
+} from "@/lib/booking";
+import {
+  alert,
+  emailLayout,
+  esc,
+  ownerEmail,
+  sendEmail,
+  SITE_URL,
+} from "@/lib/notify";
 import { db, hasSupabase } from "@/lib/supabase/server";
 
 // Guest booking request → booking_requests (pending) → admin alert +
@@ -29,12 +43,19 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "invalid_json" },
+      { status: 400 },
+    );
   }
   if (body.company) return NextResponse.json({ ok: true }); // honeypot
 
   const invalid = validate(body);
-  if (invalid) return NextResponse.json({ ok: false, error: `invalid_${invalid}` }, { status: 422 });
+  if (invalid)
+    return NextResponse.json(
+      { ok: false, error: `invalid_${invalid}` },
+      { status: 422 },
+    );
   const b = body as BookingPayload;
 
   if (!hasSupabase()) {
@@ -69,43 +90,62 @@ export async function POST(req: Request) {
   const ref = { type: "booking" as const, id: booking.id };
   const groupTag = b.kind === "group" ? (hu ? " (csoport)" : " (group)") : "";
 
-  await Promise.all([
-    alert("admin", "booking.new", `New ${b.kind === "group" ? "group " : ""}booking request`, `${b.name} · ${b.partySize}p · ${when}`, ref),
-    sendEmail(
-      b.email,
-      hu ? `Megkaptuk a foglalási kérésed · #${booking.reference}` : `We received your booking request · #${booking.reference}`,
-      emailLayout(
-        hu ? `Szia ${b.name}!` : `Hi ${b.name}!`,
-        [
-          hu ? "Megkaptuk a foglalási kérésedet:" : "We received your booking request:",
-          `<strong>${esc(when)} · ${b.partySize} ${hu ? "fő" : "guests"}${groupTag}</strong>`,
-          `${hu ? "Hivatkozási szám" : "Reference"}: <strong>#${booking.reference}</strong>`,
-          hu ? "Hamarosan e-mailben visszaigazoljuk." : "We'll confirm by email shortly.",
-        ],
-        undefined,
-        hu,
+  // Respond immediately; alerts and emails go out right after the response.
+  after(async () => {
+    await Promise.all([
+      alert(
+        "admin",
+        "booking.new",
+        `New ${b.kind === "group" ? "group " : ""}booking request`,
+        `${b.name} · ${b.partySize}p · ${when}`,
+        ref,
       ),
-      "booking.received",
-      ref,
-    ),
-    sendEmail(
-      await ownerEmail(),
-      `New booking request #${booking.reference}: ${when} · ${b.partySize}p · ${b.name}`,
-      emailLayout(
-        "New booking request",
-        [
-          `<strong>${esc(b.name)}</strong> · ${b.partySize} guests${groupTag}`,
-          `${esc(when)}`,
-          `${esc(b.phone)} · ${esc(b.email)}`,
-          b.occasion ? `Occasion: ${esc(b.occasion)}` : "",
-          b.note ? `Note: ${esc(b.note)}` : "",
-        ].filter(Boolean),
-        { label: "Approve or decline", href: `${SITE_URL}/admin/bookings` },
+      sendEmail(
+        b.email,
+        hu
+          ? `Megkaptuk a foglalási kérésed · #${booking.reference}`
+          : `We received your booking request · #${booking.reference}`,
+        emailLayout(
+          hu ? `Szia ${b.name}!` : `Hi ${b.name}!`,
+          [
+            hu
+              ? "Megkaptuk a foglalási kérésedet:"
+              : "We received your booking request:",
+            `<strong>${esc(when)} · ${b.partySize} ${hu ? "fő" : "guests"}${groupTag}</strong>`,
+            `${hu ? "Hivatkozási szám" : "Reference"}: <strong>#${booking.reference}</strong>`,
+            hu
+              ? "Hamarosan e-mailben visszaigazoljuk."
+              : "We'll confirm by email shortly.",
+          ],
+          undefined,
+          hu,
+        ),
+        "booking.received",
+        ref,
       ),
-      "booking.owner",
-      ref,
-    ),
-  ]);
+      sendEmail(
+        await ownerEmail(),
+        `New booking request #${booking.reference}: ${when} · ${b.partySize}p · ${b.name}`,
+        emailLayout(
+          "New booking request",
+          [
+            `<strong>${esc(b.name)}</strong> · ${b.partySize} guests${groupTag}`,
+            `${esc(when)}`,
+            `${esc(b.phone)} · ${esc(b.email)}`,
+            b.occasion ? `Occasion: ${esc(b.occasion)}` : "",
+            b.note ? `Note: ${esc(b.note)}` : "",
+          ].filter(Boolean),
+          { label: "Approve or decline", href: `${SITE_URL}/admin/bookings` },
+        ),
+        "booking.owner",
+        ref,
+      ),
+    ]);
+  });
 
-  return NextResponse.json({ ok: true, saved: true, reference: booking.reference });
+  return NextResponse.json({
+    ok: true,
+    saved: true,
+    reference: booking.reference,
+  });
 }

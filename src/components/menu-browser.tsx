@@ -15,7 +15,7 @@ export function MenuBrowser({ lang, categories, items: menuItems }: { lang: Loca
 
   const visible = useMemo(
     () => (active ? menuItems.filter((i) => i.tags.includes(active) || (active === "vegetarian" && i.tags.includes("vegan"))) : menuItems),
-    [active],
+    [active, menuItems],
   );
 
   // Highlight the category tab for the section in view.

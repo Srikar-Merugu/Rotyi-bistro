@@ -63,6 +63,8 @@ const copy = {
 
 type Saved = { id: string; key: string; number: number; at: number };
 
+const nowMs = () => Date.now();
+
 export function TableOrder({
   lang,
   token,
@@ -94,7 +96,7 @@ export function TableOrder({
       const prev = JSON.parse(localStorage.getItem(`rotyi.orders.${token}`) ?? "[]") as Saved[];
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time restore from browser storage
       setQty(b);
-      setPrevious(prev.filter((p) => Date.now() - p.at < 6 * 3600_000));
+      setPrevious(prev.filter((p) => nowMs() - p.at < 6 * 3600_000));
     } catch {}
   }, [storeKey, token]);
 
@@ -146,7 +148,7 @@ export function TableOrder({
         return;
       }
       if (!res.ok) throw new Error(json.error);
-      const saved: Saved = { id: json.id, key: json.key, number: json.number, at: Date.now() };
+      const saved: Saved = { id: json.id, key: json.key, number: json.number, at: nowMs() };
       try {
         localStorage.setItem(`rotyi.orders.${token}`, JSON.stringify([saved, ...previous].slice(0, 10)));
         sessionStorage.removeItem(storeKey);
@@ -160,7 +162,7 @@ export function TableOrder({
 
   return (
     <div className="min-h-screen bg-cream pb-32">
-      <section className="bg-paprika px-4 pb-10 pt-24 text-cream">
+      <section className="bg-ink px-4 pb-10 pt-24 text-cream">
         <div className="mx-auto flex max-w-3xl items-center gap-4">
           <KettleMascot className="wobble w-20 shrink-0" />
           <div>

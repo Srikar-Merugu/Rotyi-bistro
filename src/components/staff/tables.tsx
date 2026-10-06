@@ -13,9 +13,9 @@ const randomToken = () => {
 };
 
 export function AdminTables() {
-  const [origin, setOrigin] = useState("");
+  // Staff screens only render client-side (behind the auth gate), so window is available.
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || (typeof window === "undefined" ? "" : window.location.origin);
   const [err, setErr] = useState<string | null>(null);
-  useEffect(() => setOrigin(process.env.NEXT_PUBLIC_SITE_URL || window.location.origin), []);
 
   const { data } = useLive(() => q<Table[]>(supabase().from("dining_tables").select("*").order("label")), ["dining_tables"]);
 
