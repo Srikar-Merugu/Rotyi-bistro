@@ -17,6 +17,12 @@ const columns: { status: OrderStatus; title: string }[] = [
 ];
 
 type Item = { id: string; name_en: string; name_hu: string; available: boolean; category_id: string };
+type Coming = { id: string; booking_time: string | null; party_size: number; name: string; dishes: string[]; note: string | null; dining_tables: { label: string } | null };
+
+const budapestClock = () => {
+  const p = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Budapest", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+  return Number(p.find((x) => x.type === "hour")!.value) * 60 + Number(p.find((x) => x.type === "minute")!.value);
+};
 
 export function KitchenBoard() {
   useTick(15_000);
@@ -26,13 +32,23 @@ export function KitchenBoard() {
 
   const { data, reload } = useLive(
     async () => {
-      const [orders, items] = await Promise.all([
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest" }).format(new Date());
+      const [orders, items, coming] = await Promise.all([
         q<OrderRow[]>(supabase().from("orders").select(ORDER_SELECT).in("status", ["placed", "accepted", "preparing", "ready"]).order("created_at")),
         q<Item[]>(supabase().from("menu_items").select("id, name_en, name_hu, available, category_id").order("sort")),
+        // Today's approved reservations: guest name, size, table and pre-order only (no contact details).
+        q<Coming[]>(
+          supabase()
+            .from("booking_requests")
+            .select("id, booking_time, party_size, name, dishes, note, dining_tables(label)")
+            .eq("status", "confirmed")
+            .eq("booking_date", today)
+            .order("booking_time"),
+        ),
       ]);
-      return { orders, items };
+      return { orders, items, coming };
     },
-    ["orders", "order_items", "menu_items"],
+    ["orders", "order_items", "menu_items", "booking_requests"],
   );
 
   const counts = Object.fromEntries(columns.map((c) => [c.status, data?.orders.filter((o) => o.status === c.status).length ?? 0]));
@@ -45,6 +61,8 @@ export function KitchenBoard() {
           {showStock ? "Close stock" : "86 / stock"}
         </Btn>
       </div>
+
+      {data && <ComingUp list={data.coming} />}
 
       {showStock && data && (
         <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -95,5 +113,37 @@ export function KitchenBoard() {
         </div>
       )}
     </>
+  );
+}
+
+/** Reservations arriving in the next 3 hours, so the kitchen can prep. */
+function ComingUp({ list }: { list: Coming[] }) {
+  const now = budapestClock();
+  const soon = list.filter((b) => {
+    if (!b.booking_time) return false;
+    const [h, m] = b.booking_time.split(":").map(Number);
+    const t = h * 60 + m;
+    return t >= now - 30 && t <= now + 180;
+  });
+  if (!soon.length) return null;
+  return (
+    <section className="mb-5 rounded-2xl border-2 border-ink bg-mustard p-3" aria-label="Reservations coming up">
+      <p className="mb-2 font-[family-name:var(--font-display)] text-xl uppercase">Coming up · next 3 hours</p>
+      <div className="hide-scrollbar flex gap-3 overflow-x-auto pb-1">
+        {soon.map((b) => (
+          <div key={b.id} className="min-w-[220px] rounded-xl bg-cream-soft p-3">
+            <p className="font-[family-name:var(--font-display)] text-2xl leading-none">
+              {b.booking_time?.slice(0, 5)} · {b.party_size}p
+            </p>
+            <p className="text-sm font-bold">
+              {b.name}
+              {b.dining_tables?.label ? ` · table ${b.dining_tables.label}` : ""}
+            </p>
+            {b.dishes.length > 0 && <p className="mt-1 text-sm">Pre-order: {b.dishes.join(", ")}</p>}
+            {b.note && <p className="mt-1 text-xs text-paprika-ink">↳ {b.note}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

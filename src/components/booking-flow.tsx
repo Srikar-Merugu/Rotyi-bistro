@@ -78,6 +78,7 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
       email: String(f.get("email") ?? "").trim(),
       note: String(f.get("note") ?? "").trim(),
       dishes: dishNames,
+      dishIds: items.filter((id) => menuItems.some((m) => m.id === id)),
       company: String(f.get("company") ?? ""),
     };
     const errs: Record<string, string> = {};

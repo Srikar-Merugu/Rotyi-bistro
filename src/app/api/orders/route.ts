@@ -11,6 +11,7 @@ import { MAX_LINES, MAX_QTY } from "@/lib/orders";
 import { formatHuf } from "@/lib/site";
 import { emailOk } from "@/lib/booking";
 import { db, hasSupabase } from "@/lib/supabase/server";
+import { createOrder } from "@/lib/order-create";
 
 // Guest scans the table QR and orders. Prices and availability come from the
 // database, never from the client.
@@ -62,55 +63,28 @@ export async function POST(req: Request) {
   if (settings && !settings.ordering_open)
     return NextResponse.json({ error: "ordering_closed" }, { status: 409 });
 
-  const ids = [...new Set(lines.map((l) => l.id))];
-  const { data: menu } = await db()
-    .from("menu_items")
-    .select("id, name_hu, name_en, price, available")
-    .in("id", ids);
-  const byId = new Map((menu ?? []).map((m) => [m.id, m]));
-  const unavailable = ids.filter((id) => !byId.get(id)?.available);
-  if (unavailable.length)
-    return NextResponse.json(
-      { error: "unavailable", items: unavailable },
-      { status: 409 },
-    );
-
-  const rows = lines.map((l) => {
-    const m = byId.get(l.id)!;
-    return {
-      item_id: m.id,
-      name: lang === "hu" ? m.name_hu : m.name_en,
-      unit_price: m.price,
-      qty: l.qty,
-      note: (l.note ?? "").trim().slice(0, 200) || null,
-    };
+  const created = await createOrder({
+    table,
+    lines,
+    lang,
+    guestName: body.name,
+    guestEmail: email || null,
+    note: body.note,
+    source: "qr",
+    strict: true,
   });
-  const total = rows.reduce((s, r) => s + r.unit_price * r.qty, 0);
-
-  const { data: order, error } = await db()
-    .from("orders")
-    .insert({
-      table_id: table.id,
-      table_label: table.label,
-      guest_name: (body.name ?? "").trim().slice(0, 80) || null,
-      guest_email: email || null,
-      note: (body.note ?? "").trim().slice(0, 500) || null,
-      locale: lang,
-      total,
-    })
-    .select("id, number, guest_key")
-    .single();
-  if (error || !order) {
-    console.error("[orders] insert failed", error);
-    return NextResponse.json({ error: "server" }, { status: 502 });
-  }
-  const { error: itemsError } = await db()
-    .from("order_items")
-    .insert(rows.map((r) => ({ ...r, order_id: order.id })));
-  if (itemsError) {
-    await db().from("orders").delete().eq("id", order.id);
-    return NextResponse.json({ error: "server" }, { status: 502 });
-  }
+  if (!created.ok)
+    return created.error === "unavailable"
+      ? NextResponse.json(
+          { error: "unavailable", items: created.items },
+          { status: 409 },
+        )
+      : NextResponse.json(
+          { error: created.error === "empty" ? "invalid_items" : "server" },
+          { status: created.error === "empty" ? 422 : 502 },
+        );
+  const { order } = created;
+  const { rows, total } = order;
 
   const ref = { type: "order" as const, id: order.id };
   const summary = rows.map((r) => `${r.qty}× ${r.name}`).join(", ");

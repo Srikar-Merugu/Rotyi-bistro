@@ -63,6 +63,7 @@ export type BookingPayload = {
   note?: string;
   occasion?: string;
   dishes?: string[];
+  dishIds?: string[]; // menu ids of dishes picked on the website → kitchen pre-order
   company?: string; // honeypot
 };
 

@@ -52,7 +52,8 @@ export function useLive<T>(loader: () => Promise<T>, tables: string[], key = tab
   return { data, error, reload };
 }
 
-export async function q<T>(p: PromiseLike<{ data: T | null; error: { message: string } | null }>): Promise<T> {
+/** Unwraps a Supabase query; the caller states the row shape (joins included). */
+export async function q<T>(p: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T> {
   const { data, error } = await p;
   if (error) throw new Error(error.message);
   return data as T;

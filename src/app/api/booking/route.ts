@@ -79,6 +79,7 @@ export async function POST(req: Request) {
       occasion: b.occasion || null,
       note: b.note || null,
       dishes: (b.dishes ?? []).slice(0, 20),
+      dish_ids: (b.dishIds ?? []).filter((id) => typeof id === "string" && /^[a-z0-9-]{1,40}$/.test(id)).slice(0, 20),
       locale: b.lang,
     })
     .select("id, reference")
