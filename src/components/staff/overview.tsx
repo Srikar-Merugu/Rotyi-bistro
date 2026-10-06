@@ -14,7 +14,7 @@ export function AdminOverview() {
     async () => {
       const start = new Date();
       start.setHours(0, 0, 0, 0);
-      const [pending, todayBookings, orders, next] = await Promise.all([
+      const [pending, todayBookings, orders, next, ratings] = await Promise.all([
         q<{ id: string }[]>(supabase().from("booking_requests").select("id").eq("status", "pending")),
         q<{ party_size: number; status: string }[]>(supabase().from("booking_requests").select("party_size, status").eq("booking_date", today)),
         q<{ status: string; total: number }[]>(supabase().from("orders").select("status, total").gte("created_at", start.toISOString())),
@@ -28,11 +28,13 @@ export function AdminOverview() {
             .order("booking_time")
             .limit(6),
         ),
+        q<{ rating: number }[]>(supabase().from("order_feedback").select("rating").gte("created_at", new Date(Date.now() - 30 * 86_400_000).toISOString())),
       ]);
       return {
         pending: pending.length,
         covers: todayBookings.filter((b) => ["confirmed", "seated"].includes(b.status)).reduce((s, b) => s + b.party_size, 0),
         next,
+        rating: ratings.length ? (ratings.reduce((s, r) => s + r.rating, 0) / ratings.length).toFixed(1) + " ★" : "–",
         newOrders: orders.filter((o) => o.status === "placed").length,
         cooking: orders.filter((o) => ["accepted", "preparing"].includes(o.status)).length,
         ready: orders.filter((o) => o.status === "ready").length,
@@ -40,7 +42,7 @@ export function AdminOverview() {
         ordersToday: orders.filter((o) => o.status !== "cancelled").length,
       };
     },
-    ["booking_requests", "orders"],
+    ["booking_requests", "orders", "order_feedback"],
   );
 
   const tiles = [
@@ -50,13 +52,14 @@ export function AdminOverview() {
     { label: "Cooking", value: data?.cooking, href: "/kitchen" },
     { label: "Ready to serve", value: data?.ready, href: "/admin/orders", hot: (data?.ready ?? 0) > 0 },
     { label: "Paid today", value: data ? huf(data.revenue) : undefined, href: "/admin/orders" },
+    { label: "Guest rating · 30 days", value: data?.rating, href: "/admin/feedback" },
   ];
 
   return (
     <>
       <h1 className="display mb-1 text-5xl text-paprika-ink sm:text-6xl">Szia, {staff.name ?? "admin"}!</h1>
       <p className="mb-5 text-ink/70">Everything updates live. Turn on alerts (top right) for sound and phone notifications.</p>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         {tiles.map((t) => (
           <Link key={t.label} href={t.href} className={`rounded-2xl border-2 border-ink p-4 shadow-[4px_4px_0_var(--color-ink)] transition hover:-translate-y-0.5 ${t.hot ? "bg-mustard" : "bg-cream-soft"}`}>
             <p className="display text-4xl">{t.value ?? "…"}</p>

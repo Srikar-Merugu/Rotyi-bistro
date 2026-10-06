@@ -16,5 +16,14 @@ export async function GET(req: Request, { params }: RouteContext<"/api/orders/[i
   if (!data || data.guest_key !== key) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const { guest_key: _omit, ...order } = data;
   void _omit;
-  return NextResponse.json(order, { headers: { "cache-control": "no-store" } });
+  // After the meal: the guest's own rating (if any) and the venue's review link.
+  let after: { reviewUrl: string | null; rating: number | null } | null = null;
+  if (order.status === "paid") {
+    const [{ data: s }, { data: f }] = await Promise.all([
+      db().from("settings").select("google_review_url").maybeSingle(),
+      db().from("order_feedback").select("rating").eq("order_id", id).maybeSingle(),
+    ]);
+    after = { reviewUrl: s?.google_review_url ?? null, rating: f?.rating ?? null };
+  }
+  return NextResponse.json({ ...order, after }, { headers: { "cache-control": "no-store" } });
 }

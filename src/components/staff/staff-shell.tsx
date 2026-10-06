@@ -25,6 +25,7 @@ const nav = [
   { href: "/kitchen", label: "Kitchen", icon: "🍲", roles: ["admin", "kitchen"] },
   { href: "/admin/tables", label: "Tables & QR", icon: "▦", roles: ["admin"] },
   { href: "/admin/menu", label: "Menu", icon: "📋", roles: ["admin"] },
+  { href: "/admin/feedback", label: "Feedback", icon: "★", roles: ["admin"] },
   { href: "/admin/staff", label: "Staff", icon: "👥", roles: ["admin"] },
   { href: "/admin/emails", label: "Emails", icon: "✉", roles: ["admin"] },
 ] as const;

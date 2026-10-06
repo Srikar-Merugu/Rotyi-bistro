@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { statusLabel, type OrderStatus } from "@/lib/orders";
 import type { Locale } from "@/lib/routes";
 import { formatHuf } from "@/lib/site";
-import { KettleMascot } from "./art";
+import { href } from "@/lib/routes";
+import { KettleMascot, Star } from "./art";
 
 type Order = {
   id: string;
@@ -16,13 +17,31 @@ type Order = {
   note: string | null;
   created_at: string;
   order_items: { name: string; qty: number; unit_price: number; note: string | null }[];
+  /** Present once the bill is paid. */
+  after: { reviewUrl: string | null; rating: number | null } | null;
 };
 
 const steps: OrderStatus[] = ["placed", "accepted", "preparing", "ready", "served"];
 
 const copy = {
-  hu: { title: "Rendelés", table: "Asztal", more: "Rendelnék még", total: "Összesen", lost: "Ezt a rendelést nem találjuk.", live: "Élő követés", pay: "Fizetés a felszolgálónál." },
-  en: { title: "Order", table: "Table", more: "Order more", total: "Total", lost: "We can't find this order.", live: "Live tracking", pay: "Pay your server at the table." },
+  hu: {
+    title: "Rendelés", table: "Asztal", more: "Rendelnék még", total: "Összesen", lost: "Ezt a rendelést nem találjuk.", live: "Élő követés", pay: "Fizetés a felszolgálónál.",
+    thanks: "Köszönjük!", thanksLead: "Reméljük, ízlett. Gyere vissza hamar!", paid: "Fizetve",
+    rateTitle: "Milyen volt?", rateLead: "Egy koppintás. Csak a csapatunk látja.", star: (n: number) => `${n} csillag`,
+    commentPh: "Mit csináljunk még jobban? (nem kötelező)", send: "Küldés", sending: "Küldés…", rated: "Köszönjük a visszajelzést!", change: "Módosítás",
+    googleTitle: "Segíts másoknak is megtalálni minket", googleLead: "Egy Google-értékelés sokat jelent egy kis bisztrónak.", google: "Google értékelés írása",
+    googleDemo: "Ez egy demó: valódi étteremnél itt a saját Google-értékelés oldala nyílik meg.",
+    againTitle: "Gyere vissza!", againLead: "Napi menü hétköznap 11:30–15:00, leves + főétel 3 490 Ft-tól.", book: "Asztalt foglalok", bill: "A számlád", error: "Nem sikerült elküldeni. Próbáld újra.",
+  },
+  en: {
+    title: "Order", table: "Table", more: "Order more", total: "Total", lost: "We can't find this order.", live: "Live tracking", pay: "Pay your server at the table.",
+    thanks: "Thank you!", thanksLead: "We hope you enjoyed it. Come back soon!", paid: "Paid",
+    rateTitle: "How was it?", rateLead: "One tap. Only our team sees it.", star: (n: number) => `${n} star${n === 1 ? "" : "s"}`,
+    commentPh: "Anything we could do better? (optional)", send: "Send", sending: "Sending…", rated: "Thanks for the feedback!", change: "Change",
+    googleTitle: "Help others find us", googleLead: "A Google review means a lot to a small bistro.", google: "Write a Google review",
+    googleDemo: "This is a demo: for a real restaurant this opens its own Google review page.",
+    againTitle: "Come again!", againLead: "Daily lunch menu weekdays 11:30–15:00, soup + main from 3,490 HUF.", book: "Book a table", bill: "Your bill", error: "Couldn't send. Please try again.",
+  },
 };
 
 export function OrderTracker({ lang, token, id, guestKey }: { lang: Locale; token: string; id: string; guestKey: string }) {
@@ -72,8 +91,10 @@ export function OrderTracker({ lang, token, id, guestKey }: { lang: Locale; toke
       </div>
     );
 
-  const idx = order ? steps.indexOf(order.status === "paid" ? "served" : order.status) : 0;
+  const idx = order ? (order.status === "paid" ? steps.length : steps.indexOf(order.status)) : 0;
   const cancelled = order?.status === "cancelled";
+
+  if (order?.status === "paid") return <ThankYou lang={lang} order={order} id={id} guestKey={guestKey} />;
 
   return (
     <div className="min-h-screen bg-cream px-4 pb-16 pt-24">
@@ -146,5 +167,155 @@ export function OrderTracker({ lang, token, id, guestKey }: { lang: Locale; toke
         </Link>
       </div>
     </div>
+  );
+}
+
+function ThankYou({ lang, order, id, guestKey }: { lang: Locale; order: Order; id: string; guestKey: string }) {
+  const t = copy[lang];
+  const [rating, setRating] = useState<number | null>(order.after?.rating ?? null);
+  const [sent, setSent] = useState(order.after?.rating != null);
+  const [comment, setComment] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [demoNote, setDemoNote] = useState(false);
+  const reviewUrl = order.after?.reviewUrl ?? null;
+
+  async function send() {
+    if (!rating) return;
+    setStatus("sending");
+    try {
+      const res = await fetch(`/api/orders/${id}/feedback`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ k: guestKey, rating, comment }),
+      });
+      if (!res.ok) throw new Error();
+      setSent(true);
+      setStatus("idle");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-cream px-4 pb-16 pt-24">
+      <div className="mx-auto max-w-xl space-y-5">
+        <section className="relative overflow-hidden rounded-[2rem] bg-paprika px-6 pb-7 pt-6 text-cream">
+          <KettleMascot className="wobble absolute -bottom-2 right-3 w-20 sm:w-24" />
+          <span className="sticker">{t.paid} · #{order.number}</span>
+          <h1 className="display mt-4 text-[clamp(3rem,15vw,4.75rem)] leading-[0.9]">{t.thanks}</h1>
+          <p className="mt-2 max-w-[62%] text-xl">{t.thanksLead}</p>
+        </section>
+
+        <section id="rate" className="scroll-mt-24 rounded-[2rem] border-2 border-ink bg-cream-soft p-5 shadow-[6px_6px_0_var(--color-ink)]" aria-labelledby="rate-title">
+          {sent ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p id="rate-title" className="display text-3xl">{t.rated}</p>
+                <p className="mt-1 text-2xl text-mustard [text-shadow:0_1px_0_var(--color-ink)]" aria-label={rating ? t.star(rating) : undefined}>
+                  {"★".repeat(rating ?? 0)}
+                  <span className="text-ink/15 [text-shadow:none]">{"★".repeat(5 - (rating ?? 0))}</span>
+                </p>
+              </div>
+              <button type="button" onClick={() => setSent(false)} className="min-h-11 shrink-0 rounded-full border-2 border-ink px-4 font-bold">
+                {t.change}
+              </button>
+            </div>
+          ) : (
+            <>
+              <h2 id="rate-title" className="display text-3xl">{t.rateTitle}</h2>
+              <p className="text-ink/70">{t.rateLead}</p>
+              <div className="mt-3 flex justify-between gap-1" role="radiogroup" aria-label={t.rateTitle}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={rating === n}
+                    aria-label={t.star(n)}
+                    onClick={() => setRating(n)}
+                    className="grid h-14 flex-1 place-items-center rounded-2xl transition active:scale-90"
+                  >
+                    <Star className={`h-12 w-12 transition ${rating && n <= rating ? "scale-110" : "opacity-25 grayscale"}`} />
+                  </button>
+                ))}
+              </div>
+              {rating && (
+                <div className="mt-3 space-y-3 [animation:pop-in_.35s_var(--ease-out-expo)]">
+                  <label className="block">
+                    <span className="sr-only">{t.commentPh}</span>
+                    <textarea
+                      id="feedback-comment"
+                      rows={2}
+                      maxLength={1000}
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder={t.commentPh}
+                      className="w-full rounded-xl border-2 border-ink/20 bg-white px-3 py-2 text-lg"
+                    />
+                  </label>
+                  {status === "error" && <p role="alert" className="font-semibold text-paprika-ink">{t.error}</p>}
+                  <button type="button" onClick={send} disabled={status === "sending"} className="pill pill-ink w-full disabled:opacity-60">
+                    {status === "sending" ? t.sending : t.send}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* Shown to every guest regardless of rating: Google forbids review gating. */}
+        <section className="rounded-[2rem] bg-ink p-5 text-cream" aria-labelledby="google-title">
+          <h2 id="google-title" className="display text-3xl text-mustard">{t.googleTitle}</h2>
+          <p className="mt-1">{t.googleLead}</p>
+          {reviewUrl ? (
+            <a href={reviewUrl} target="_blank" rel="noopener" className="pill pill-cream mt-4 w-full text-lg">
+              <GoogleG /> {t.google}
+            </a>
+          ) : (
+            <>
+              <button type="button" onClick={() => setDemoNote(true)} className="pill pill-cream mt-4 w-full text-lg">
+                <GoogleG /> {t.google}
+              </button>
+              {demoNote && <p className="mt-3 text-sm text-cream/80" role="status">{t.googleDemo}</p>}
+            </>
+          )}
+        </section>
+
+        <section className="rounded-[2rem] border-2 border-dashed border-ink/40 bg-mustard p-5" aria-labelledby="again-title">
+          <h2 id="again-title" className="display text-3xl">{t.againTitle}</h2>
+          <p className="mt-1">{t.againLead}</p>
+          <Link href={href(lang, "book")} className="pill pill-red mt-4">
+            {t.book}
+          </Link>
+        </section>
+
+        <details className="rounded-[2rem] bg-cream-soft p-5">
+          <summary className="flex cursor-pointer list-none items-center justify-between font-[family-name:var(--font-display)] text-xl uppercase [&::-webkit-details-marker]:hidden">
+            {t.bill} <span>{formatHuf(order.total)}</span>
+          </summary>
+          <ul className="mt-3 divide-y-2 divide-ink/10">
+            {order.order_items.map((it, i) => (
+              <li key={i} className="flex justify-between gap-3 py-2 text-lg">
+                <span>
+                  {it.qty}× {it.name}
+                </span>
+                <span className="tabular-nums">{formatHuf(it.qty * it.unit_price)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function GoogleG() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.7z" />
+      <path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1 .7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9h-4v3.1A12 12 0 0 0 12 24z" />
+      <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.7V6.6h-4a12 12 0 0 0 0 10.8z" />
+      <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z" />
+    </svg>
   );
 }
