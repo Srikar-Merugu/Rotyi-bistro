@@ -23,6 +23,7 @@ const nav = [
   { href: "/admin", label: "Overview", icon: "◎", roles: ["admin"] },
   { href: "/admin/bookings", label: "Bookings", icon: "📅", roles: ["admin"] },
   { href: "/admin/orders", label: "Orders", icon: "🧾", roles: ["admin"] },
+  { href: "/admin/reports", label: "Reports", icon: "📈", roles: ["admin"] },
   { href: "/kitchen", label: "Kitchen", icon: "🍲", roles: ["admin", "kitchen"] },
   { href: "/admin/tables", label: "Tables & QR", icon: "▦", roles: ["admin"] },
   { href: "/admin/menu", label: "Menu", icon: "📋", roles: ["admin"] },
