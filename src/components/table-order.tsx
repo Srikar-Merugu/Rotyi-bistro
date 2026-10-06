@@ -11,6 +11,7 @@ import { formatEur, formatHuf } from "@/lib/site";
 import { emailOk } from "@/lib/booking";
 import { getDictionary } from "@/lib/i18n";
 import { KettleMascot } from "./art";
+import { photoUrl } from "@/lib/photo";
 
 const copy = {
   hu: {
@@ -221,11 +222,9 @@ export function TableOrder({
                       className={`flex gap-3 rounded-2xl border-2 border-ink bg-cream-soft p-2.5 shadow-[4px_4px_0_var(--color-ink)] ${item.available ? "" : "opacity-55"}`}
                     >
                       <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-mustard">
-                        {item.image ? (
-                          <Image src={`${item.image}?w=300&h=300&fit=crop`} alt="" fill sizes="96px" quality={70} className="object-cover" />
-                        ) : (
-                          <KettleMascot className="absolute inset-3" steam={false} />
-                        )}
+                        {/* Mascot sits underneath, so a slow photo never looks like an empty box */}
+                        <KettleMascot className="absolute inset-4 opacity-40" steam={false} />
+                        {item.image && <Image src={photoUrl(item.image, 300, 300)} alt={item.name[lang]} fill sizes="96px" quality={70} className="object-cover" />}
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col">
                         <h3 className="font-[family-name:var(--font-display)] text-xl uppercase leading-tight">{item.name[lang]}</h3>

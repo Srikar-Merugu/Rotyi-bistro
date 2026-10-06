@@ -42,6 +42,11 @@ export const photos = {
   beer: u("photo-1618183479302-1e0aa382c36b"),
   bowl: u("photo-1547496502-affa22d38842"),
   chickenBites: u("photo-1562967916-eb82221dfb92"),
+  broth: u("photo-1612966948332-81d747414a8f"),
+  langos: u("photo-1788601697132-47cd42b0d18e"),
+  trifle: u("photo-1710106519622-8c49d0bcff2f"),
+  lemonade: u("photo-1623084921164-4a8c5c37a912"),
+  whiteWine: u("photo-1597905722448-a1df7c00000a"),
 } as const;
 
 export const categories: MenuCategory[] = [
@@ -79,6 +84,7 @@ export const menuItems: MenuItem[] = [
     },
     price: 2290,
     tags: [],
+    image: photos.broth,
     quick: { time: "5 min", side: side("Cérnametélt", "Fine noodles"), protein: "24 g", spice: 0, kcal: 380 },
   },
   {
@@ -174,6 +180,7 @@ export const menuItems: MenuItem[] = [
     },
     price: 1990,
     tags: ["vegetarian"],
+    image: photos.langos,
     quick: { time: "6 min", side: side("Fokhagyma", "Garlic"), protein: "16 g", spice: 0, kcal: 720 },
   },
   {
@@ -212,6 +219,7 @@ export const menuItems: MenuItem[] = [
     },
     price: 2290,
     tags: ["vegetarian"],
+    image: photos.trifle,
     quick: { time: "3 min", side: side("Csokiszósz", "Choc sauce"), protein: "8 g", spice: 0, kcal: 560 },
   },
   {
@@ -237,6 +245,7 @@ export const menuItems: MenuItem[] = [
     },
     price: 1290,
     tags: ["vegan", "gluten-free"],
+    image: photos.lemonade,
     quick: { time: "2 min", side: side("Jég", "Ice"), protein: "—", spice: 0, kcal: 140 },
   },
   {
@@ -249,6 +258,7 @@ export const menuItems: MenuItem[] = [
     },
     price: 990,
     tags: ["vegan", "gluten-free"],
+    image: photos.whiteWine,
     quick: { time: "1 min", side: side("Szóda", "Soda"), protein: "—", spice: 0, kcal: 110 },
   },
 ];

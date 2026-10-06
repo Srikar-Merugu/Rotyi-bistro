@@ -8,6 +8,7 @@ import type { Locale } from "@/lib/routes";
 import { formatEur, formatHuf } from "@/lib/site";
 import { LangosBuddy, Nokedli, Paprika, SourCream } from "./art";
 import { useTable } from "./table-provider";
+import { photoUrl } from "@/lib/photo";
 
 const fallbackArt: Record<string, React.ComponentType<{ className?: string }>> = {
   langos: LangosBuddy,
@@ -44,9 +45,12 @@ export function DishCard({ item, lang, index = 0 }: { item: MenuItem & { availab
       style={{ ["--rr" as string]: tilt, rotate: tilt, ["--d" as string]: `${(index % 3) * 90}ms` }}
     >
       <div className="relative aspect-[4/3] overflow-hidden rounded-[1.4rem] bg-mustard">
+        <div className="absolute inset-0 grid place-items-center" aria-hidden>
+          <Art className="w-1/3 opacity-30" />
+        </div>
         {item.image ? (
           <Image
-            src={`${item.image}?w=800&h=600&fit=crop`}
+            src={photoUrl(item.image, 800, 600)}
             alt={item.name[lang]}
             fill
             sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 380px"

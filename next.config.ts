@@ -13,7 +13,11 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     qualities: [70, 80],
     // Unsplash crops are set via query (?w=&h=&fit=crop), so search is left open.
-    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com", port: "", pathname: "/photo-**" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "images.unsplash.com", port: "", pathname: "/photo-**" },
+      // Dish photos uploaded from /admin/menu (Supabase Storage, public bucket)
+      { protocol: "https", hostname: "*.supabase.co", port: "", pathname: "/storage/v1/object/public/menu-photos/**" },
+    ],
   },
   async rewrites() {
     return huPairs.map(([key, slug]) => ({

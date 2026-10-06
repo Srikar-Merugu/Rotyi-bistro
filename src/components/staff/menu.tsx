@@ -5,9 +5,23 @@ import { supabase } from "@/lib/supabase/browser";
 import { Btn, Card, Empty, PageTitle, huf, q, useLive } from "./ui";
 
 type Cat = { id: string; name_en: string; name_hu: string };
-type Item = { id: string; category_id: string; name_hu: string; name_en: string; description_hu: string; description_en: string; price: number; available: boolean; signature: boolean; tags: string[] };
+type Item = { id: string; category_id: string; name_hu: string; name_en: string; description_hu: string; description_en: string; price: number; available: boolean; signature: boolean; tags: string[]; image: string | null };
 type Lunch = { weekday: number; soup_hu: string; soup_en: string; main_hu: string; main_en: string; dessert_hu: string; dessert_en: string };
 type Settings = { lunch_price_two: number; lunch_price_three: number; owner_email: string | null };
+
+/** Uploads a dish photo to the public "menu-photos" bucket and returns its URL. */
+async function uploadPhoto(file: File, dishId: string) {
+  if (!file.type.startsWith("image/")) throw new Error("Please choose an image file.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("Photo is larger than 5 MB. Please use a smaller one.");
+  const ext = (file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+  const path = `${dishId}-${Date.now()}.${ext}`;
+  const bucket = supabase().storage.from("menu-photos");
+  const { error } = await bucket.upload(path, file, { contentType: file.type, cacheControl: "31536000" });
+  if (error) throw new Error(error.message);
+  return bucket.getPublicUrl(path).data.publicUrl;
+}
+
+const thumb = (src: string) => (src.includes("images.unsplash.com") ? `${src}?w=240&h=180&fit=crop` : src);
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const slug = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
@@ -46,10 +60,20 @@ function Dishes({ cats, items, onSaved }: { cats: Cat[]; items: Item[]; onSaved:
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const name_hu = String(f.get("name_hu")).trim();
+    const id = slug(String(f.get("name_en") || name_hu));
+    const photo = f.get("photo");
+    let image: string | null = null;
+    try {
+      if (photo instanceof File && photo.size > 0) image = await uploadPhoto(photo, id);
+    } catch (err) {
+      setErr((err as Error).message);
+      return;
+    }
     const { error } = await supabase()
       .from("menu_items")
       .insert({
-        id: slug(String(f.get("name_en") || name_hu)),
+        id,
+        image,
         category_id: f.get("category_id"),
         name_hu,
         name_en: String(f.get("name_en")).trim() || name_hu,
@@ -82,6 +106,10 @@ function Dishes({ cats, items, onSaved }: { cats: Cat[]; items: Item[]; onSaved:
               {cats.map((c) => <option key={c.id} value={c.id}>{c.name_en}</option>)}
             </select>
             <input name="price" type="number" required min={0} step={10} placeholder="Price (HUF)" className="min-h-11 rounded-xl border-2 border-ink/20 bg-white px-3" />
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block text-sm font-semibold">Photo (JPG/PNG/WebP, max 5 MB). Shown on the website and QR menu</span>
+              <input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/avif" capture="environment" className="block w-full rounded-xl border-2 border-dashed border-ink/30 bg-white p-3 text-sm" />
+            </label>
             <Btn type="submit" tone="green" className="sm:col-span-2">Save dish</Btn>
             {err && <p className="text-sm font-semibold text-paprika-ink sm:col-span-2">{err}</p>}
           </form>
@@ -102,6 +130,7 @@ function Dishes({ cats, items, onSaved }: { cats: Cat[]; items: Item[]; onSaved:
 function DishRow({ i, onSaved }: { i: Item; onSaved: () => void }) {
   const [price, setPrice] = useState(String(i.price));
   const [saved, setSaved] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState<string | null>(null);
   const set = async (patch: Partial<Item>) => {
     await supabase().from("menu_items").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", i.id);
     onSaved();
@@ -109,7 +138,15 @@ function DishRow({ i, onSaved }: { i: Item; onSaved: () => void }) {
   return (
     <Card className={i.available ? "" : "opacity-60"}>
       <div className="flex items-start justify-between gap-2">
-        <div>
+        <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-mustard">
+          {i.image ? (
+            // eslint-disable-next-line @next/next/no-img-element -- small admin thumbnail
+            <img src={thumb(i.image)} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="grid h-full place-items-center text-xs font-bold">No photo</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
           <p className="font-[family-name:var(--font-display)] text-xl uppercase leading-tight">{i.name_hu}</p>
           <p className="text-sm text-ink/70">{i.name_en} · {huf(i.price)}</p>
         </div>
@@ -133,6 +170,27 @@ function DishRow({ i, onSaved }: { i: Item; onSaved: () => void }) {
           <input type="checkbox" checked={i.signature} onChange={(e) => set({ signature: e.target.checked })} className="h-5 w-5" /> Home page
         </label>
       </form>
+      <label className="mt-2 inline-flex min-h-11 cursor-pointer items-center rounded-full border-2 border-ink px-4 text-sm font-bold">
+        📷 {i.image ? "Change photo" : "Add photo"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          className="sr-only"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setPhotoMsg("Uploading…");
+            try {
+              await set({ image: await uploadPhoto(file, i.id) });
+              setPhotoMsg("Photo updated ✓ Live within a minute.");
+            } catch (err) {
+              setPhotoMsg((err as Error).message);
+            }
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {photoMsg && <p className="mt-1 text-sm font-semibold" role="status">{photoMsg}</p>}
     </Card>
   );
 }
