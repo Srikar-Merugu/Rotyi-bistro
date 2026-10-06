@@ -17,7 +17,7 @@ export function AdminTables() {
   const origin = process.env.NEXT_PUBLIC_SITE_URL || (typeof window === "undefined" ? "" : window.location.origin);
   const [err, setErr] = useState<string | null>(null);
 
-  const { data } = useLive(() => q<Table[]>(supabase().from("dining_tables").select("*").order("label")), ["dining_tables"]);
+  const { data, reload } = useLive(() => q<Table[]>(supabase().from("dining_tables").select("*").order("label")), ["dining_tables"]);
 
   async function add(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -27,7 +27,10 @@ export function AdminTables() {
       .from("dining_tables")
       .insert({ label: String(f.get("label")).trim().toUpperCase(), seats: Number(f.get("seats")), area: f.get("area") });
     setErr(error?.message ?? null);
-    if (!error) form.reset();
+    if (!error) {
+      form.reset();
+      reload();
+    }
   }
 
   return (
@@ -69,7 +72,7 @@ export function AdminTables() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 print:grid-cols-3 print:gap-2">
           {data.map((t) => (
-            <TableCard key={t.id} t={t} url={`${origin}/t/${t.qr_token}`} />
+            <TableCard key={t.id} t={t} url={`${origin}/t/${t.qr_token}`} onChanged={reload} />
           ))}
         </div>
       )}
@@ -77,13 +80,16 @@ export function AdminTables() {
   );
 }
 
-function TableCard({ t, url }: { t: Table; url: string }) {
+function TableCard({ t, url, onChanged }: { t: Table; url: string; onChanged: () => void }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     QRCode.toDataURL(url, { width: 640, margin: 2, errorCorrectionLevel: "M", color: { dark: "#221a16", light: "#ffffff" } }).then(setSrc);
   }, [url]);
 
-  const update = (patch: Partial<Table>) => supabase().from("dining_tables").update(patch).eq("id", t.id);
+  const update = async (patch: Partial<Table>) => {
+    await supabase().from("dining_tables").update(patch).eq("id", t.id);
+    onChanged();
+  };
 
   return (
     <Card className={`flex flex-col items-center text-center print:break-inside-avoid print:shadow-none ${t.active ? "" : "opacity-50"}`}>

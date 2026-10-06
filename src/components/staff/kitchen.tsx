@@ -24,7 +24,7 @@ export function KitchenBoard() {
   const [tab, setTab] = useState<OrderStatus>("placed");
   const [showStock, setShowStock] = useState(false);
 
-  const { data } = useLive(
+  const { data, reload } = useLive(
     async () => {
       const [orders, items] = await Promise.all([
         q<OrderRow[]>(supabase().from("orders").select(ORDER_SELECT).in("status", ["placed", "accepted", "preparing", "ready"]).order("created_at")),
@@ -53,7 +53,10 @@ export function KitchenBoard() {
               key={i.id}
               type="button"
               aria-pressed={!i.available}
-              onClick={() => supabase().from("menu_items").update({ available: !i.available }).eq("id", i.id)}
+              onClick={async () => {
+                await supabase().from("menu_items").update({ available: !i.available }).eq("id", i.id);
+                reload();
+              }}
               className={`min-h-14 rounded-xl border-2 border-ink px-3 py-2 text-left text-sm font-bold ${i.available ? "bg-cream-soft" : "bg-ink text-cream line-through"}`}
             >
               {i.name_hu}
@@ -84,7 +87,7 @@ export function KitchenBoard() {
                   {c.title} <span className="rounded-full bg-ink px-2 text-cream">{list.length}</span>
                 </h2>
                 <div className="space-y-4">
-                  {list.length === 0 ? <Empty>Nothing here</Empty> : list.map((o) => <OrderCard key={o.id} o={o} role={staff.role} big />)}
+                  {list.length === 0 ? <Empty>Nothing here</Empty> : list.map((o) => <OrderCard key={o.id} o={o} role={staff.role} big onChanged={reload} />)}
                 </div>
               </section>
             );

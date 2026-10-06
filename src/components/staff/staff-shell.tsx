@@ -55,10 +55,27 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
   // Staff row for the signed-in user, keyed by user id so a sign-out/sign-in can't show a stale role.
   const [lookup, setLookup] = useState<{ userId: string; staff: Staff | null } | null>(null);
 
+  // Invite and password-reset links arrive with #...type=invite|recovery; those
+  // users have no password yet, so they must set one before using the app.
+  const [needsPassword, setNeedsPassword] = useState(false);
+
   useEffect(() => {
+    const fromLink = /type=(invite|recovery)/.test(window.location.hash);
     const sb = supabase();
-    sb.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: sub } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
+    // Realtime must carry the user's token before any channel subscribes,
+    // otherwise RLS treats the socket as anonymous and sends no changes.
+    const apply = async (s: Session | null) => {
+      if (s) await sb.realtime.setAuth(s.access_token);
+      setSession(s);
+    };
+    sb.auth.getSession().then(({ data }) => {
+      if (fromLink && data.session) setNeedsPassword(true);
+      apply(data.session);
+    });
+    const { data: sub } = sb.auth.onAuthStateChange((event, s) => {
+      if (event === "PASSWORD_RECOVERY" || (fromLink && event === "SIGNED_IN")) setNeedsPassword(true);
+      apply(s);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -76,6 +93,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
   const staff = session && lookup?.userId === session.user.id ? lookup.staff : undefined;
   if (session === undefined || (session && staff === undefined)) return <Splash />;
   if (!session) return <Login />;
+  if (needsPassword) return <SetPassword email={session.user.email ?? ""} onDone={() => setNeedsPassword(false)} />;
   if (!staff) return <NoAccess email={session.user.email ?? ""} />;
   return <Authed staff={staff}>{children}</Authed>;
 }
@@ -266,6 +284,51 @@ function SignOut({ compact }: { compact?: boolean }) {
   );
 }
 
+function SetPassword({ email, onDone }: { email: string; onDone: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const password = String(f.get("password"));
+    if (password.length < 8) return setError("Use at least 8 characters.");
+    if (password !== String(f.get("confirm"))) return setError("The two passwords don't match.");
+    setBusy(true);
+    setError(null);
+    const { error } = await supabase().auth.updateUser({ password });
+    setBusy(false);
+    if (error) return setError(error.message);
+    window.history.replaceState(null, "", window.location.pathname);
+    onDone();
+  }
+  return (
+    <div className="grid min-h-screen place-items-center bg-paprika px-4">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-[2rem] border-2 border-ink bg-cream-soft p-6 shadow-[8px_8px_0_var(--color-ink)]">
+        <div className="mb-4 flex items-center gap-3">
+          <KettleMascot className="h-14 w-14" />
+          <div>
+            <p className="font-[family-name:var(--font-sticker)] text-3xl text-paprika-ink">ROTYI</p>
+            <p className="text-sm font-bold uppercase tracking-wider">Welcome to the team</p>
+          </div>
+        </div>
+        <p className="mb-4 text-base">Choose a password for <strong>{email}</strong>. You&apos;ll use it to sign in to the admin and kitchen screens.</p>
+        <label className="mb-3 block">
+          <span className="mb-1 block font-semibold">New password</span>
+          <input name="password" type="password" required minLength={8} autoComplete="new-password" className="min-h-12 w-full rounded-xl border-2 border-ink/20 bg-white px-3 text-lg" />
+        </label>
+        <label className="mb-3 block">
+          <span className="mb-1 block font-semibold">Repeat password</span>
+          <input name="confirm" type="password" required minLength={8} autoComplete="new-password" className="min-h-12 w-full rounded-xl border-2 border-ink/20 bg-white px-3 text-lg" />
+        </label>
+        {error && <p role="alert" className="mb-3 rounded-xl bg-paprika-ink px-3 py-2 text-sm font-semibold text-white">{error}</p>}
+        <button type="submit" disabled={busy} className="pill pill-red w-full disabled:opacity-60">
+          {busy ? "Saving…" : "Set password & continue"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function Splash() {
   return (
     <div className="grid min-h-screen place-items-center bg-cream">
@@ -276,7 +339,16 @@ function Splash() {
 
 function Login() {
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  async function forgot(form: HTMLFormElement | null) {
+    const email = String(new FormData(form ?? undefined).get("email") ?? "").trim();
+    if (!email) return setError("Type your email first, then tap “Forgot password?”.");
+    setError(null);
+    const { error } = await supabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/admin` });
+    if (error) setError(error.message);
+    else setInfo("If that email is on the staff list, a reset link is on its way.");
+  }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -305,8 +377,12 @@ function Login() {
           <input name="password" type="password" required autoComplete="current-password" className="min-h-12 w-full rounded-xl border-2 border-ink/20 bg-white px-3 text-lg" />
         </label>
         {error && <p role="alert" className="mb-3 rounded-xl bg-paprika-ink px-3 py-2 text-sm font-semibold text-white">{error}</p>}
+        {info && <p role="status" className="mb-3 rounded-xl bg-leaf px-3 py-2 text-sm font-semibold text-white">{info}</p>}
         <button type="submit" disabled={busy} className="pill pill-red w-full disabled:opacity-60">
           {busy ? "Signing in…" : "Sign in"}
+        </button>
+        <button type="button" onClick={(e) => forgot(e.currentTarget.form)} className="mt-3 w-full text-sm font-semibold underline underline-offset-4">
+          Forgot password?
         </button>
       </form>
     </div>

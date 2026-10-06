@@ -43,7 +43,7 @@ export function minutesSince(iso: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
 }
 
-export function OrderCard({ o, role, big = false }: { o: OrderRow; role: "admin" | "kitchen"; big?: boolean }) {
+export function OrderCard({ o, role, big = false, onChanged }: { o: OrderRow; role: "admin" | "kitchen"; big?: boolean; onChanged?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const mins = minutesSince(o.created_at);
@@ -59,14 +59,17 @@ export function OrderCard({ o, role, big = false }: { o: OrderRow; role: "admin"
     try {
       await staffFetch(`/api/staff/orders/${o.id}`, { status: to });
     } catch (e) {
-      setErr((e as Error).message);
+      const msg = (e as Error).message;
+      setErr(msg === "transition_not_allowed" ? "This order was already updated on another screen. Refreshed." : msg === "unauthorized" ? "Session expired. Sign in again." : msg);
     } finally {
       setBusy(false);
+      onChanged?.();
     }
   }
 
   async function toggleItem(id: string, done: boolean) {
     await supabase().from("order_items").update({ done }).eq("id", id);
+    onChanged?.();
   }
 
   return (

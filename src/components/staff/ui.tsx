@@ -37,10 +37,14 @@ export function useLive<T>(loader: () => Promise<T>, tables: string[], key = tab
     }
     ch.subscribe();
     // Safety net if a websocket event is missed (phone sleeps, flaky wifi).
-    const poll = setInterval(() => document.visibilityState === "visible" && reload(), 30_000);
+    // Also refresh the moment the screen comes back to the foreground.
+    const onVisible = () => document.visibilityState === "visible" && reload();
+    document.addEventListener("visibilitychange", onVisible);
+    const poll = setInterval(() => document.visibilityState === "visible" && reload(), 10_000);
     return () => {
       clearTimeout(timer);
       clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
       sb.removeChannel(ch);
     };
   }, [key, reload]);

@@ -10,6 +10,7 @@ import { menuItems } from "@/lib/menu";
 import { KettleMascot, Paprika } from "./art";
 import { BookingFlow } from "./booking-flow";
 import { useTable } from "./table-provider";
+import { useOpenAllDayDate } from "@/lib/venue-status";
 
 /** Works out which page we're on so the language switch keeps it. */
 function currentPage(pathname: string, lang: Locale): PageKey {
@@ -34,12 +35,13 @@ export function Header({ lang }: { lang: Locale }) {
   const [openNow, setOpenNow] = useState<boolean | null>(null);
   const lastY = useRef(0);
 
+  const openAllDayDate = useOpenAllDayDate();
   useEffect(() => {
-    const tick = () => setOpenNow(isOpenNow());
+    const tick = () => setOpenNow(isOpenNow(new Date(), openAllDayDate));
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [openAllDayDate]);
 
   useEffect(() => {
     const onScroll = () => {

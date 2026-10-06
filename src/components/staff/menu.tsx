@@ -91,7 +91,7 @@ function Dishes({ cats, items, onSaved }: { cats: Cat[]; items: Item[]; onSaved:
         <section key={c.id} className="mb-6">
           <h2 className="display mb-2 text-3xl">{c.name_en}</h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {items.filter((i) => i.category_id === c.id).map((i) => <DishRow key={i.id} i={i} />)}
+            {items.filter((i) => i.category_id === c.id).map((i) => <DishRow key={i.id} i={i} onSaved={onSaved} />)}
           </div>
         </section>
       ))}
@@ -99,10 +99,13 @@ function Dishes({ cats, items, onSaved }: { cats: Cat[]; items: Item[]; onSaved:
   );
 }
 
-function DishRow({ i }: { i: Item }) {
+function DishRow({ i, onSaved }: { i: Item; onSaved: () => void }) {
   const [price, setPrice] = useState(String(i.price));
   const [saved, setSaved] = useState(false);
-  const set = (patch: Partial<Item>) => supabase().from("menu_items").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", i.id);
+  const set = async (patch: Partial<Item>) => {
+    await supabase().from("menu_items").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", i.id);
+    onSaved();
+  };
   return (
     <Card className={i.available ? "" : "opacity-60"}>
       <div className="flex items-start justify-between gap-2">

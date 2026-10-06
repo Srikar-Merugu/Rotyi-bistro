@@ -72,7 +72,9 @@ export function isLunchTime(date = new Date()) {
   return weekday <= 4 && minutes < toMinutes(lunchWindow.closes);
 }
 
-export function isOpenNow(date = new Date()) {
+/** `openAllDayDate` (YYYY-MM-DD, Budapest) is the admin's "open all day today" override. */
+export function isOpenNow(date = new Date(), openAllDayDate?: string | null) {
+  if (openAllDayDate && openAllDayDate === new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest" }).format(date)) return true;
   const { weekday, minutes } = budapestNow(date);
   const today = openingHours[weekday];
   return minutes >= toMinutes(today.opens) && minutes < toMinutes(today.closes);

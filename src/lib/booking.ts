@@ -24,9 +24,14 @@ export function weekdayOf(date: string) {
   return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
 }
 
-/** Slots every 30 min from opening until 90 min before closing. */
-export function slotsFor(date: string, now = new Date()) {
-  const h = openingHours[weekdayOf(date)];
+const ALL_DAY = { opens: "00:00", closes: "24:00" };
+
+/**
+ * Slots every 30 min from opening until 90 min before closing.
+ * `openAllDayDate` is the admin override: that date is bookable around the clock.
+ */
+export function slotsFor(date: string, now = new Date(), openAllDayDate?: string | null) {
+  const h = date === openAllDayDate ? ALL_DAY : openingHours[weekdayOf(date)];
   const last = toMin(h.closes) - 90;
   const isToday = date === budapestDate(0, now);
   const earliest = isToday ? budapestNow(now).minutes + 45 : 0;
@@ -39,9 +44,9 @@ export function slotsFor(date: string, now = new Date()) {
   return { lunch, dinner };
 }
 
-export function bookableDates(count = 14, now = new Date()) {
+export function bookableDates(count = 14, now = new Date(), openAllDayDate?: string | null) {
   return Array.from({ length: count }, (_, i) => budapestDate(i, now)).filter((d) => {
-    const { lunch, dinner } = slotsFor(d, now);
+    const { lunch, dinner } = slotsFor(d, now, openAllDayDate);
     return lunch.length + dinner.length > 0;
   });
 }

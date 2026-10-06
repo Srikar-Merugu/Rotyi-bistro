@@ -20,7 +20,7 @@ import { db, hasSupabase } from "@/lib/supabase/server";
 // Guest booking request → booking_requests (pending) → admin alert +
 // "we received your request" to the guest + "new request" to the owner.
 
-function validate(b: Partial<BookingPayload>): string | null {
+function validate(b: Partial<BookingPayload>, openAllDayDate: string | null): string | null {
   if (b.kind !== "table" && b.kind !== "group") return "kind";
   if (b.lang !== "hu" && b.lang !== "en") return "lang";
   if (!b.date || !/^\d{4}-\d{2}-\d{2}$/.test(b.date)) return "date";
@@ -32,7 +32,7 @@ function validate(b: Partial<BookingPayload>): string | null {
   if (!Number.isInteger(size) || size < 1) return "partySize";
   if (b.kind === "table") {
     if (size > MAX_PARTY) return "partySize";
-    const { lunch, dinner } = slotsFor(b.date);
+    const { lunch, dinner } = slotsFor(b.date, new Date(), openAllDayDate);
     if (!b.time || ![...lunch, ...dinner].includes(b.time)) return "time";
   } else if (size > MAX_GROUP) return "partySize";
   return null;
@@ -50,7 +50,10 @@ export async function POST(req: Request) {
   }
   if (body.company) return NextResponse.json({ ok: true }); // honeypot
 
-  const invalid = validate(body);
+  const openAllDayDate = hasSupabase()
+    ? ((await db().from("settings").select("open_all_day_date").maybeSingle()).data?.open_all_day_date ?? null)
+    : null;
+  const invalid = validate(body, openAllDayDate);
   if (invalid)
     return NextResponse.json(
       { ok: false, error: `invalid_${invalid}` },

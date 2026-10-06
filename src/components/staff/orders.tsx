@@ -9,8 +9,10 @@ export function AdminOrders() {
   useTick(15_000);
   const [view, setView] = useState<"active" | "closed">("active");
   const [ordering, setOrdering] = useState<boolean | null>(null);
+  const [allDay, setAllDay] = useState<string | null | undefined>(undefined);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Budapest" }).format(new Date());
 
-  const { data } = useLive(
+  const { data, reload } = useLive(
     async () => {
       const since = new Date();
       since.setHours(0, 0, 0, 0);
@@ -23,9 +25,10 @@ export function AdminOrders() {
             .in("status", view === "active" ? ["placed", "accepted", "preparing", "ready", "served"] : ["paid", "cancelled"])
             .order("created_at", { ascending: view === "active" }),
         ),
-        q<{ ordering_open: boolean }>(supabase().from("settings").select("ordering_open").single()),
+        q<{ ordering_open: boolean; open_all_day_date: string | null }>(supabase().from("settings").select("ordering_open, open_all_day_date").single()),
       ]);
       setOrdering(settings.ordering_open);
+      setAllDay(settings.open_all_day_date);
       return orders;
     },
     ["orders", "order_items", "settings"],
@@ -51,6 +54,19 @@ export function AdminOrders() {
               QR ordering: {ordering ? "ON" : "PAUSED"}
             </Btn>
           )}
+          {allDay !== undefined && (
+            <Btn
+              tone={allDay === today ? "green" : "ghost"}
+              title="Ignore opening hours today: open badge, bookings at any time"
+              onClick={async () => {
+                const next = allDay === today ? null : today;
+                setAllDay(next);
+                await supabase().from("settings").update({ open_all_day_date: next, updated_at: new Date().toISOString() }).eq("id", true);
+              }}
+            >
+              Open all day today: {allDay === today ? "ON" : "OFF"}
+            </Btn>
+          )}
         </div>
       </PageTitle>
       {view === "closed" && (
@@ -66,7 +82,7 @@ export function AdminOrders() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {data.map((o) => (
-            <OrderCard key={o.id} o={o} role="admin" />
+            <OrderCard key={o.id} o={o} role="admin" onChanged={reload} />
           ))}
         </div>
       )}

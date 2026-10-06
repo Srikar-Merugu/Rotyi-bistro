@@ -7,6 +7,7 @@ import { menuItems } from "@/lib/menu";
 import type { Locale } from "@/lib/routes";
 import { trackEvent } from "@/lib/analytics";
 import { useTable } from "./table-provider";
+import { useOpenAllDayDate } from "@/lib/venue-status";
 import { GroupForm } from "./group-form";
 
 type Step = "date" | "time" | "party" | "details" | "done" | "group";
@@ -29,8 +30,9 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
   const [errors, setErrors] = useState<Record<string, string>>({});
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  const dates = useMemo(() => (now ? bookableDates(14, now) : []), [now]);
-  const slots = useMemo(() => (date && now ? slotsFor(date, now) : { lunch: [], dinner: [] }), [date, now]);
+  const openAllDayDate = useOpenAllDayDate();
+  const dates = useMemo(() => (now ? bookableDates(14, now, openAllDayDate) : []), [now, openAllDayDate]);
+  const slots = useMemo(() => (date && now ? slotsFor(date, now, openAllDayDate) : { lunch: [], dinner: [] }), [date, now, openAllDayDate]);
 
   const dishNames = items
     .map((id) => menuItems.find((m) => m.id === id)?.name[lang])
