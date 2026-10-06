@@ -4,7 +4,8 @@ import { GroupForm } from "@/components/group-form";
 import { JsonLd } from "@/components/json-ld";
 import { PageHero } from "@/components/page-hero";
 import { getDictionary } from "@/lib/i18n";
-import { isLocale, type Locale } from "@/lib/routes";
+import Link from "next/link";
+import { href, isLocale, type Locale } from "@/lib/routes";
 import { breadcrumbJsonLd, pageMetadata } from "@/lib/seo";
 import { venue } from "@/lib/site";
 
@@ -35,7 +36,10 @@ export default async function BookPage({ params }: PageProps<"/[lang]/book">) {
               {venue.phone}
             </a>
             <p className="mt-3 text-base">
-              {dict.visit.hours}: {lang === "hu" ? "minden nap" : "every day"} 11:30–23:00
+              {lang === "hu" ? "Hétköznap 11:30-tól, hétvégén 12:00-tól" : "Weekdays from 11:30, weekends from 12:00"} ·{" "}
+              <Link href={href(lang, "visit")} className="font-semibold underline underline-offset-4">
+                {dict.visit.hours}
+              </Link>
               <br />
               {dict.lunch.sticker}: {dict.lunch.until}
             </p>
