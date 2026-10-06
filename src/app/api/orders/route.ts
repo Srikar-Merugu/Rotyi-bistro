@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import {
   alert,
-  emailLayout,
+  brandedEmail,
   esc,
   ownerEmail,
   sendEmail,
@@ -103,18 +103,17 @@ export async function POST(req: Request) {
       sendEmail(
         await ownerEmail(),
         `New order #${order.number} · table ${table.label} · ${formatHuf(total)}`,
-        emailLayout(
-          `Order #${order.number} · table ${table.label}`,
-          [
-            esc(summary),
-            `Total: <strong>${formatHuf(total)}</strong>`,
-            body.note ? `Note: ${esc(body.note)}` : "",
-          ].filter(Boolean),
-          {
-            label: "Open orders",
-            href: `${SITE_URL}/admin/orders`,
-          },
-        ),
+        brandedEmail({
+          label: "New order",
+          title: `Table ${table.label} · #${order.number}`,
+          preheader: `${summary} · ${formatHuf(total)}`,
+          details: [
+            ...rows.map((r) => [`${r.qty}×`, esc(r.name)] as [string, string]),
+            ["Total", formatHuf(total)],
+            ...((body.note ? [["Note", esc(body.note)]] : []) as [string, string][]),
+          ],
+          cta: { label: "Open kitchen", href: `${SITE_URL}/kitchen` },
+        }),
         "order.owner",
         ref,
       ),
@@ -124,21 +123,20 @@ export async function POST(req: Request) {
             hu
               ? `Rendelés leadva · #${order.number}`
               : `Order placed · #${order.number}`,
-            emailLayout(
-              hu ? "Megkaptuk a rendelésed!" : "We've got your order!",
-              [
-                esc(summary),
-                `${hu ? "Összesen" : "Total"}: <strong>${formatHuf(total)}</strong>`,
-                hu
-                  ? "Szólunk, amikor kész."
-                  : "We'll let you know when it's ready.",
-              ],
-              {
-                label: hu ? "Rendelés követése" : "Track your order",
-                href: trackUrl,
-              },
+            brandedEmail({
               hu,
-            ),
+              label: hu ? `Asztal ${table.label}` : `Table ${table.label}`,
+              title: hu ? "Megkaptuk a rendelésed!" : "We've got your order!",
+              preheader: `#${order.number} · ${formatHuf(total)}`,
+              paragraphs: [hu ? "A konyha már dolgozik rajta. Szólunk, amikor kész." : "The kitchen is on it. We'll let you know when it's ready."],
+              details: [
+                ...rows.map((r) => [`${r.qty}×`, esc(r.name)] as [string, string]),
+                [hu ? "Összesen" : "Total", formatHuf(total)],
+                [hu ? "Rendelés" : "Order", `#${order.number}`],
+              ],
+              cta: { label: hu ? "Rendelés követése" : "Track your order", href: trackUrl },
+              after: [hu ? "Fizetés a felszolgálónál, az étkezés végén." : "Pay your server at the end of your meal."],
+            }),
             "order.guest_placed",
             ref,
           )

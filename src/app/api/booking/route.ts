@@ -9,7 +9,8 @@ import {
 } from "@/lib/booking";
 import {
   alert,
-  emailLayout,
+  brandedEmail,
+  niceDate,
   esc,
   ownerEmail,
   sendEmail,
@@ -109,38 +110,48 @@ export async function POST(req: Request) {
         hu
           ? `Megkaptuk a foglalási kérésed · #${booking.reference}`
           : `We received your booking request · #${booking.reference}`,
-        emailLayout(
-          hu ? `Szia ${b.name}!` : `Hi ${b.name}!`,
-          [
-            hu
-              ? "Megkaptuk a foglalási kérésedet:"
-              : "We received your booking request:",
-            `<strong>${esc(when)} · ${b.partySize} ${hu ? "fő" : "guests"}${groupTag}</strong>`,
-            `${hu ? "Hivatkozási szám" : "Reference"}: <strong>#${booking.reference}</strong>`,
-            hu
-              ? "Hamarosan e-mailben visszaigazoljuk."
-              : "We'll confirm by email shortly.",
-          ],
-          undefined,
+        brandedEmail({
           hu,
-        ),
+          label: hu ? "Foglalási kérés" : "Booking request",
+          title: hu ? `Köszönjük, ${esc(b.name)}!` : `Thanks, ${esc(b.name)}!`,
+          preheader: hu ? `Megkaptuk: ${niceDate(b.date, true)} ${b.time ?? ""}` : `Received: ${niceDate(b.date, false)} ${b.time ?? ""}`,
+          paragraphs: [
+            hu
+              ? "Megkaptuk a foglalási kérésedet. Hamarosan visszaigazoljuk e-mailben, általában egy órán belül."
+              : "We've received your booking request and will confirm by email shortly, usually within the hour.",
+          ],
+          details: [
+            [hu ? "Nap" : "Date", esc(niceDate(b.date, hu))],
+            [hu ? "Időpont" : "Time", esc(b.time ?? "—")],
+            [hu ? "Létszám" : "Guests", `${b.partySize} ${hu ? "fő" : b.partySize === 1 ? "guest" : "guests"}${groupTag}`],
+            ...((b.dishes?.length ? [[hu ? "Előrendelés" : "Pre-order", esc(b.dishes.join(", "))]] : []) as [string, string][]),
+            [hu ? "Hivatkozás" : "Reference", `#${booking.reference}`],
+          ],
+          after: [hu ? "Változott a terv? Válaszolj erre az e-mailre, vagy hívj minket." : "Change of plans? Reply to this email or give us a call."],
+        }),
         "booking.received",
         ref,
       ),
       sendEmail(
         await ownerEmail(),
         `New booking request #${booking.reference}: ${when} · ${b.partySize}p · ${b.name}`,
-        emailLayout(
-          "New booking request",
-          [
-            `<strong>${esc(b.name)}</strong> · ${b.partySize} guests${groupTag}`,
-            `${esc(when)}`,
-            `${esc(b.phone)} · ${esc(b.email)}`,
-            b.occasion ? `Occasion: ${esc(b.occasion)}` : "",
-            b.note ? `Note: ${esc(b.note)}` : "",
-          ].filter(Boolean),
-          { label: "Approve or decline", href: `${SITE_URL}/admin/bookings` },
-        ),
+        brandedEmail({
+          label: "New request",
+          title: `${esc(b.name)} · ${b.partySize}p`,
+          preheader: `${niceDate(b.date, false)} ${b.time ?? ""} · approve or decline`,
+          details: [
+            ["Date", esc(niceDate(b.date, false))],
+            ["Time", esc(b.time ?? "—")],
+            ["Guests", `${b.partySize}${groupTag}`],
+            ["Phone", esc(b.phone)],
+            ["Email", esc(b.email)],
+            ...((b.occasion ? [["Occasion", esc(b.occasion)]] : []) as [string, string][]),
+            ...((b.dishes?.length ? [["Pre-order", esc(b.dishes.join(", "))]] : []) as [string, string][]),
+            ...((b.note ? [["Note", esc(b.note)]] : []) as [string, string][]),
+            ["Reference", `#${booking.reference}`],
+          ],
+          cta: { label: "Approve or decline", href: `${SITE_URL}/admin/bookings` },
+        }),
         "booking.owner",
         ref,
       ),

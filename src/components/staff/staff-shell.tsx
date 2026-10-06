@@ -345,9 +345,8 @@ function Login() {
     const email = String(new FormData(form ?? undefined).get("email") ?? "").trim();
     if (!email) return setError("Type your email first, then tap “Forgot password?”.");
     setError(null);
-    const { error } = await supabase().auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/admin` });
-    if (error) setError(error.message);
-    else setInfo("If that email is on the staff list, a reset link is on its way.");
+    await fetch("/api/auth/reset", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) }).catch(() => {});
+    setInfo("If that email is on the staff list, a reset link is on its way.");
   }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

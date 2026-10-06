@@ -1,6 +1,8 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
 import { db } from "./supabase/server";
+import { brandedEmail } from "./email-template";
+export { brandedEmail };
 import { SITE_URL, venue } from "./site";
 
 // Every event writes an in-app alert (Realtime pushes it to admin/kitchen
@@ -72,21 +74,15 @@ async function deliver(to: string, subject: string, html: string): Promise<strin
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/** Branded email shell. `lines` are pre-escaped HTML snippets. */
+/** Simple branded email: title + paragraphs (+ optional button). See email-template.ts for the full layout. */
 export function emailLayout(title: string, lines: string[], cta?: { label: string; href: string }, hu = true) {
-  return `<!doctype html><html><body style="margin:0;background:#f6e6d0;font-family:Arial,Helvetica,sans-serif;color:#221a16">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">
-<table role="presentation" width="100%" style="max-width:560px;background:#fbf3e7;border-radius:18px;border:2px solid #221a16">
-<tr><td style="background:#c62d17;border-radius:16px 16px 0 0;padding:18px 24px;color:#fbf3e7;font-size:28px;font-weight:900;letter-spacing:1px">ROTYI</td></tr>
-<tr><td style="padding:24px">
-<h1 style="margin:0 0 12px;font-size:24px;color:#b8281a">${esc(title)}</h1>
-${lines.map((l) => `<p style="margin:0 0 10px;font-size:16px;line-height:1.5">${l}</p>`).join("")}
-${cta ? `<p style="margin:20px 0 0"><a href="${cta.href}" style="background:#221a16;color:#f6e6d0;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:bold">${esc(cta.label)}</a></p>` : ""}
-</td></tr>
-<tr><td style="padding:14px 24px;border-top:1px solid #e5d4bd;font-size:12px;color:#7a6a5c">${esc(venue.name)} · ${esc(venue.street)}, ${venue.postalCode} ${venue.city}<br>${
-    hu ? "Ez egy Kyro Studio demó. A Rotyi Bisztró kitalált hely." : "This is a Kyro Studio demo. Rotyi Bistro is fictional."
-  }</td></tr>
-</table></td></tr></table></body></html>`;
+  return brandedEmail({ title, paragraphs: lines, cta, hu });
+}
+
+/** "csütörtök, október 8." / "Thursday 8 October" from YYYY-MM-DD. */
+export function niceDate(date: string, hu: boolean) {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat(hu ? "hu-HU" : "en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
 export { esc, SITE_URL };

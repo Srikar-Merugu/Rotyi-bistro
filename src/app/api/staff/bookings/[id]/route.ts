@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { alert, emailLayout, esc, sendEmail, SITE_URL } from "@/lib/notify";
+import { alert, brandedEmail, esc, niceDate, sendEmail, SITE_URL } from "@/lib/notify";
 import { db, requireStaff } from "@/lib/supabase/server";
 import { formatHuf, venue } from "@/lib/site";
 import { createOrder } from "@/lib/order-create";
@@ -117,33 +117,38 @@ export async function POST(
     },
   }[status];
 
-  const lines = [
-    copy.lead,
-    `<strong>${esc(when)} · ${b.party_size} ${hu ? "fő" : "guests"}${table && status === "confirmed" ? ` · ${hu ? "asztal" : "table"} ${esc(table)}` : ""}</strong>`,
-    note ? `${hu ? "Üzenet tőlünk" : "Message from us"}: ${esc(note)}` : "",
-    status === "confirmed"
-      ? hu
-        ? `Címünk: ${esc(venue.street)}, ${venue.postalCode} ${venue.city}. Ha mégsem tudsz jönni, hívj: ${venue.phone}.`
-        : `Find us at ${esc(venue.street)}, ${venue.postalCode} ${venue.city}. Can't make it? Call ${venue.phone}.`
-      : hu
-        ? "Próbálj másik időpontot, vagy hívj minket."
-        : "Please try another time or give us a call.",
-  ].filter(Boolean);
-
   const mail = await sendEmail(
     b.email,
     copy.subject,
-    emailLayout(
-      copy.title,
-      lines,
-      status === "declined"
-        ? {
-            label: hu ? "Új időpont" : "Pick another time",
-            href: `${SITE_URL}/${hu ? "hu/foglalas" : "en/book"}`,
-          }
-        : undefined,
+    brandedEmail({
       hu,
-    ),
+      label: { confirmed: hu ? "Visszaigazolva" : "Confirmed", declined: hu ? "Foglalás" : "Booking", cancelled: hu ? "Törölve" : "Cancelled" }[status],
+      title: copy.title,
+      preheader: `${niceDate(b.booking_date, hu)} ${String(b.booking_time ?? "").slice(0, 5)} · #${b.reference}`,
+      paragraphs: [copy.lead, ...(note ? [`<strong>${hu ? "Üzenet tőlünk" : "A note from us"}:</strong> ${esc(note)}`] : [])],
+      details: [
+        [hu ? "Nap" : "Date", esc(niceDate(b.booking_date, hu))],
+        [hu ? "Időpont" : "Time", esc(String(b.booking_time ?? "—").slice(0, 5))],
+        [hu ? "Létszám" : "Guests", `${b.party_size} ${hu ? "fő" : b.party_size === 1 ? "guest" : "guests"}`],
+        ...((table && status === "confirmed" ? [[hu ? "Asztal" : "Table", esc(table)]] : []) as [string, string][]),
+        [hu ? "Hivatkozás" : "Reference", `#${b.reference}`],
+      ],
+      cta:
+        status === "declined"
+          ? { label: hu ? "Új időpont" : "Pick another time", href: `${SITE_URL}/${hu ? "hu/foglalas" : "en/book"}` }
+          : status === "confirmed"
+            ? { label: hu ? "Útvonal" : "Directions", href: `${SITE_URL}/${hu ? "hu/kapcsolat" : "en/visit"}` }
+            : undefined,
+      after: [
+        status === "confirmed"
+          ? hu
+            ? `${esc(venue.street)}, ${venue.postalCode} ${venue.city} · 3 perc az M2 Astoriától. Ha mégsem tudsz jönni, hívj: ${venue.phone}.`
+            : `${esc(venue.street)}, ${venue.postalCode} ${venue.city} · 3 min from M2 Astoria. Can't make it? Call ${venue.phone}.`
+          : hu
+            ? "Próbálj másik időpontot, vagy hívj minket."
+            : "Please try another time or give us a call.",
+      ],
+    }),
     `booking.${status}`,
     ref,
   );
