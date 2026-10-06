@@ -141,10 +141,10 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
       {step === "date" && (
         <fieldset>
           <legend className="display mb-4 text-3xl sm:text-4xl">{t.date}</legend>
-          <div className="hide-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2">
+          <div className="hide-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2 sm:mx-0 sm:grid sm:grid-cols-7 sm:overflow-visible sm:px-0">
             {!now &&
-              Array.from({ length: 7 }).map((_, i) => (
-                <span key={i} className="h-[72px] w-[78px] shrink-0 animate-pulse rounded-2xl bg-ink/10" />
+              Array.from({ length: 14 }).map((_, i) => (
+                <span key={i} className="h-[72px] w-[78px] shrink-0 animate-pulse rounded-2xl bg-ink/10 sm:w-auto" />
               ))}
             {dates.map((d) => {
               const label = fmtDate(d);
@@ -158,7 +158,7 @@ export function BookingFlow({ lang, compact = false }: { lang: Locale; compact?:
                     setTime("");
                     setStep("time");
                   }}
-                  className={`${chip} flex w-[78px] shrink-0 snap-start flex-col items-center leading-tight`}
+                  className={`${chip} flex w-[78px] shrink-0 snap-start flex-col items-center !px-1 leading-tight sm:w-auto`}
                 >
                   <span className="text-sm opacity-80">{label.top}</span>
                   <span className="text-lg">{label.bottom}</span>

@@ -22,15 +22,23 @@ export default async function BookPage({ params }: PageProps<"/[lang]/book">) {
   return (
     <>
       <PageHero sticker={t.sticker} title={[t.title]} lead={t.lead} />
-      <div className="mx-auto grid max-w-[1300px] gap-10 px-4 pb-24 sm:px-6 lg:grid-cols-[1.4fr_1fr]">
-        <BookingFlow lang={lang} />
-        <aside className="space-y-6">
+      {/* Two equal columns: booking on the left, phone + group enquiry on the right.
+          min-w-0 stops the date row from stretching its column past the screen. */}
+      <div className="mx-auto grid max-w-[1300px] items-start gap-8 px-4 pb-24 sm:px-6 lg:grid-cols-2">
+        <div className="min-w-0">
+          <BookingFlow lang={lang} />
+        </div>
+        <aside className="min-w-0 space-y-6">
           <div className="rounded-[2rem] border-2 border-ink bg-mustard p-6 shadow-[6px_6px_0_var(--color-ink)]">
             <p className="display text-3xl">{dict.visit.call}</p>
             <a href={venue.phoneHref} className="mt-2 block font-[family-name:var(--font-display)] text-4xl text-paprika-ink underline-offset-4 hover:underline">
               {venue.phone}
             </a>
-            <p className="mt-3 text-base">{dict.lunch.until}</p>
+            <p className="mt-3 text-base">
+              {dict.visit.hours}: {lang === "hu" ? "minden nap" : "every day"} 11:30–23:00
+              <br />
+              {dict.lunch.sticker}: {dict.lunch.until}
+            </p>
           </div>
           <div id="group" className="scroll-mt-28 rounded-[2rem] bg-cream-soft p-6 shadow-[0_8px_0_rgb(0_0_0/0.12)]">
             <GroupForm lang={lang} />
