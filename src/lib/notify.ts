@@ -2,6 +2,7 @@ import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
 import { db } from "./supabase/server";
 import { brandedEmail } from "./email-template";
+import { pushAlert } from "./push";
 export { brandedEmail };
 import { SITE_URL, venue } from "./site";
 
@@ -13,6 +14,8 @@ type Ref = { type: "booking" | "order" | "system"; id?: string };
 
 export async function alert(audience: "admin" | "kitchen" | "all", kind: string, title: string, body: string, ref?: Ref) {
   await db().from("notifications").insert({ audience, kind, title, body, ref_type: ref?.type ?? null, ref_id: ref?.id ?? null });
+  // Phones get a push for alerts that need action (works with the screen locked).
+  await pushAlert(kind, title, body).catch((e) => console.error("[push]", e));
 }
 
 export async function ownerEmail(): Promise<string | null> {

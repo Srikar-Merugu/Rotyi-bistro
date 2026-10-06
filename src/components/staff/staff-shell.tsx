@@ -7,6 +7,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/browser";
 import { KettleMascot } from "../art";
 import { TableCalls } from "./table-calls";
+import { enablePush, registerStaffWorker } from "@/lib/push-client";
 
 export type Staff = { user_id: string; email: string; name: string | null; role: "admin" | "kitchen" };
 export type Alert = { id: string; kind: string; title: string; body: string | null; created_at: string; read_at: string | null; ref_type: string | null; ref_id: string | null; audience: string };
@@ -143,10 +144,25 @@ function Authed({ staff, children }: { staff: Staff; children: React.ReactNode }
     };
   }, [staff.role]);
 
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
+  useEffect(() => {
+    registerStaffWorker();
+  }, []);
+
   const enableAlerts = async () => {
     setSoundOn(true);
     chime();
-    if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
+    const r = await enablePush(staff.user_id);
+    setPushMsg(
+      {
+        on: "Alerts on. This device now gets notifications even when the screen is locked.",
+        denied: "Notifications are blocked for this site. Allow them in your browser settings to get alerts when the screen is off.",
+        unsupported: "Sound alerts are on. This browser can't receive push notifications.",
+        "home-screen": "On iPhone: tap Share → Add to Home Screen, open Rotyi Staff from there, then tap “Turn on alerts” again.",
+        error: "Sound alerts are on, but push setup failed. Try again in a moment.",
+      }[r],
+    );
+    setTimeout(() => setPushMsg(null), 9000);
   };
 
   const markAllRead = useCallback(async () => {
@@ -204,6 +220,11 @@ function Authed({ staff, children }: { staff: Staff; children: React.ReactNode }
           </div>
         </header>
 
+        {pushMsg && (
+          <p role="status" className="border-b-2 border-ink bg-mustard px-4 py-2 text-sm font-semibold print:hidden">
+            {pushMsg}
+          </p>
+        )}
         {staff.role === "admin" && <TableCalls />}
 
         <main className="mx-auto max-w-7xl px-3 py-5 sm:px-6">{canSee ? children : <NoAccess email={staff.email} role={staff.role} />}</main>
