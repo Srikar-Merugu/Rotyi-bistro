@@ -4,6 +4,9 @@ import { href, pageKeys, type Locale } from "@/lib/routes";
 import { fullAddress, mapUrl, openingHours, venue } from "@/lib/site";
 import { LangosBuddy, Paprika } from "./art";
 
+// Agency credit → kyrostudio.eu, tagged so Kyro's analytics can count visits from this demo.
+const KYRO_URL = "https://kyrostudio.eu/?utm_source=rotyi-bistro&utm_medium=referral&utm_campaign=demo-footer";
+
 export function Footer({ lang }: { lang: Locale }) {
   const dict = getDictionary(lang);
   const days = dict.visit.days;
@@ -88,12 +91,15 @@ export function Footer({ lang }: { lang: Locale }) {
             © {year} {venue.name}. {dict.footer.rights} · {dict.footer.photos}
           </p>
           <a
-            href="https://kyrostudio.eu"
+            href={KYRO_URL}
             target="_blank"
             rel="noopener"
-            className="font-semibold text-mustard underline-offset-4 hover:underline"
+            className="group inline-flex items-center gap-2 self-start rounded-full border border-mustard/50 px-3 py-1.5 font-semibold text-mustard transition hover:border-mustard hover:bg-mustard hover:text-ink sm:self-auto"
           >
-            {dict.demo.footer}
+            <span className="text-cream/70 transition group-hover:text-ink/70">{lang === "hu" ? "Tervezte és fejlesztette:" : "Designed & built by"}</span>
+            <span className="font-[family-name:var(--font-display)] uppercase tracking-wider">Kyro Studio</span>
+            <span aria-hidden className="transition group-hover:translate-x-0.5">↗</span>
+            <span className="sr-only">{dict.demo.footer} (opens in a new tab)</span>
           </a>
         </div>
       </div>
