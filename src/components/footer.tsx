@@ -78,13 +78,14 @@ export function Footer({ lang }: { lang: Locale }) {
       </div>
 
       {/* Giant wordmark, CRAV's footer sign-off */}
-      <div className="relative mt-16 select-none" aria-hidden>
+      {/* Decorative only: clicks pass through (its tall glyphs overlap the bar below). */}
+      <div className="pointer-events-none relative mt-16 select-none" aria-hidden>
         <LangosBuddy className="floaty absolute left-[6%] top-0 z-10 hidden w-28 [--r:-12deg] md:block" />
         <Paprika face className="floaty absolute right-[8%] top-4 z-10 hidden w-20 [--float-speed:4s] [--r:14deg] md:block" />
         <p className="text-center font-[family-name:var(--font-sticker)] text-[30vw] leading-[0.8] text-paprika">ROTYI</p>
       </div>
 
-      <div className="border-t border-cream/15">
+      <div className="relative z-10 border-t border-cream/15 bg-ink">
         <div className="mx-auto flex max-w-[1400px] flex-col gap-2 px-4 py-5 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p className="font-[family-name:var(--font-display)] uppercase tracking-widest text-cream/80">{dict.footer.tagline}</p>
           <p className="text-cream/70">
